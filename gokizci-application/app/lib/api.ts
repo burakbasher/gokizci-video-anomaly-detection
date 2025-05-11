@@ -1,3 +1,52 @@
+// CSRF token yönetimi için yardımcı fonksiyonlar
+let csrfToken: string | null = null;
+
+async function getCsrfToken() {
+  try {
+    if (!csrfToken) {
+      const res = await fetch('http://localhost:5000/api/csrf-token', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'CSRF token alınamadı');
+      }
+      
+      const data = await res.json();
+      csrfToken = data.csrf_token;
+      
+      // Header'dan CSRF token'ı al
+      const headerToken = res.headers.get('X-CSRF-Token');
+      if (headerToken) {
+        csrfToken = headerToken;
+      }
+    }
+    return csrfToken;
+  } catch (error) {
+    console.error('CSRF token error:', error);
+    throw error;
+  }
+}
+
+// API istekleri için ortak headers
+async function getHeaders(contentType: boolean = true) {
+  const token = await getCsrfToken();
+  const headers: Record<string, string> = {
+    'X-CSRF-Token': token || '',
+  };
+  
+  if (contentType) {
+    headers['Content-Type'] = 'application/json';
+  }
+  
+  return headers;
+}
+
 export async function fetchUser(token?: string) {
   const res = await fetch('http://localhost:5000/api/auth/me', {
     headers: token ? {
@@ -22,42 +71,79 @@ export async function fetchDevices() {
 }
 
 export async function logoutUser() {
-  await fetch('http://localhost:5000/api/auth/logout', {
-    method: 'POST',
-    credentials: 'include',
-  });
+  try {
+    const headers = await getHeaders(false);
+    
+    await fetch('http://localhost:5000/api/auth/logout', {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+    });
+    
+    // Logout sonrası CSRF token'ı sıfırla
+    csrfToken = null;
+  } catch (error) {
+    console.error('Logout error:', error);
+    throw error;
+  }
 }
 
 export async function loginUser(email: string, password: string) {
-  const res = await fetch('http://localhost:5000/api/auth/login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || 'Giriş başarısız');
+  try {
+    const headers = await getHeaders();
+    
+    const res = await fetch('http://localhost:5000/api/auth/login', {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({ email, password }),
+    });
+    
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Giriş başarısız');
+    }
+    
+    // CSRF token'ı header'dan al
+    const headerToken = res.headers.get('X-CSRF-Token');
+    if (headerToken) {
+      csrfToken = headerToken;
+    }
+    
+    return data.user;
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
   }
-  return data.user;
 }
 
 export async function registerUser(username: string, email: string, password: string) {
-  const res = await fetch('http://localhost:5000/api/auth/register', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify({ username, email, password }),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || 'Kayıt başarısız');
+  try {
+    const headers = await getHeaders();
+    
+    const res = await fetch('http://localhost:5000/api/auth/register', {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({ username, email, password }),
+    });
+    
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Kayıt başarısız');
+    }
+    
+    // CSRF token'ı header'dan al
+    const headerToken = res.headers.get('X-CSRF-Token');
+    if (headerToken) {
+      csrfToken = headerToken;
+    }
+    
+    return data.user;
+  } catch (error) {
+    console.error('Register error:', error);
+    throw error;
   }
-  return data.user;
 }
 
 export async function fetchDevicesPaginated(page = 1, limit = 2) {
@@ -80,4 +166,34 @@ export async function deleteDevice(deviceId: string) {
     throw new Error(data.error || 'Failed to remove device');
   }
   return true;
+}
+
+export async function changePassword(oldPassword: string, newPassword: string) {
+  try {
+    const headers = await getHeaders();
+    
+    const res = await fetch('http://localhost:5000/api/changePassword', {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({
+        oldPassword,
+        newPassword,
+      }),
+    });
+    
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+      }
+      throw new Error(data.error || 'Şifre değiştirme başarısız');
+    }
+    
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    console.error('Password change error:', error);
+    throw error;
+  }
 }

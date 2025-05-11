@@ -3,11 +3,14 @@
 import React, { useState, ChangeEvent } from 'react';
 import { BlackButton } from '../buttons/BlackButton';
 import { initialPasswordChangeForm, ErrorsPassword, passwordChangeFormControls, initialPasswordErrors } from '@/app/lib/definitions';
+import { changePassword } from '@/app/lib/api';
+import { useRouter } from 'next/navigation';
 
-export function PopUpChangePassword({ onClose, userId }: { onClose: () => void; userId: string }) {
+export function PopUpChangePassword({ onClose}: { onClose: () => void;}) {
     const [showPassword, setShowPassword] = useState(false);
     const [errors, setErrors] = useState<ErrorsPassword>(initialPasswordErrors);
     const [formValues, setFormValues] = useState(initialPasswordChangeForm);
+    const router = useRouter();
 
     const handleSubmit = async (e: any) => {
         e.preventDefault();
@@ -27,7 +30,7 @@ export function PopUpChangePassword({ onClose, userId }: { onClose: () => void; 
             tempErrors.passwordNew1 = 'Parola 8 karakterden uzun olmak zorundadır.';
             hasError = true;
         }
-        if (formValues.passwordNew2.length != formValues.passwordNew1.length) {
+        if (formValues.passwordNew1 !== formValues.passwordNew2) {
             tempErrors.passwordNew1 = 'Parolalar birbiriyle uyuşmuyor.';
             tempErrors.passwordNew2 = 'Parolalar birbiriyle uyuşmuyor.';
             hasError = true;
@@ -38,45 +41,45 @@ export function PopUpChangePassword({ onClose, userId }: { onClose: () => void; 
             return;
         }
 
-        console.log(formValues.passwordOld)
-
-        console.log(formValues.passwordNew1)
-
         try {
-            // Parola güncelleme isteği
-            const res = await fetch("/api/changePassword", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    id: userId,
-                    oldPassword: formValues.passwordOld,
-                    newPassword: formValues.passwordNew1,
-                })
-            });
+            await changePassword(
+                formValues.passwordOld,
+                formValues.passwordNew1
+            );
 
+            // Başarılı durumda
+            tempErrors.success = 'Parola başarıyla değiştirildi.';
+            setErrors(tempErrors);
+            // Formu sıfırla
+            setFormValues(initialPasswordChangeForm);
+            // 2 saniye sonra popup'ı kapat
+            setTimeout(() => {
+                onClose();
+            }, 2000);
 
-            if (res.status === 400) {
-                tempErrors.passwordOld = 'Kullanıcı parolası yanlış.';
-                hasError = true;
+        } catch (error: any) {
+            console.error('Password change error:', error);
+            
+            // Oturum hatası durumunda
+            if (error.message.includes('Oturum süresi dolmuş')) {
+                tempErrors.passwordOld = error.message;
+                setErrors(tempErrors);
+                // 2 saniye sonra login sayfasına yönlendir
+                setTimeout(() => {
+                    router.push('/auth');
+                }, 2000);
+                return;
             }
-            if (res.status === 200) {
-                tempErrors.success = 'Parola başarıyla değiştirildi.';
-                hasError = true;
-            }
 
-            if (hasError) {
+            // CSRF token hatası durumunda
+            if (error.message.includes('CSRF token')) {
+                tempErrors.passwordOld = 'Güvenlik doğrulaması başarısız. Lütfen sayfayı yenileyip tekrar deneyin.';
                 setErrors(tempErrors);
                 return;
             }
 
-        } catch (error) {
-            tempErrors.passwordOld = 'Hata, lütfen tekrar deneyin.';
-            tempErrors.passwordNew1 = 'Hata, lütfen tekrar deneyin.';
-            tempErrors.passwordNew2 = 'Hata, lütfen tekrar deneyin.';
-            hasError = true;
-            console.log(error);
+            tempErrors.passwordOld = error.message || 'Hata, lütfen tekrar deneyin.';
+            setErrors(tempErrors);
         }
     };
 
@@ -84,7 +87,6 @@ export function PopUpChangePassword({ onClose, userId }: { onClose: () => void; 
         const { id, value } = e.target;
         setFormValues(prev => ({ ...prev, [id]: value }));
     };
-
 
     return (
         <>

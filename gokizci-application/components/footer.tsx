@@ -1,18 +1,25 @@
 "use client";
 import React, { useState } from "react";
-import { signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { PopUpChangePassword } from "./popups/PopUpChangePassword";
 import { useAuth } from "@/components/contexts/AuthContext";
+import { logoutUser } from "@/app/lib/api";
 
 const Footer = () => {
-
     const [isPopupVisible, setPopupVisible] = useState(false);
-    const { user } = useAuth();
-    const session = 1;
+    const { user, setUser } = useAuth();
+    const router = useRouter();
 
     const handlePopupToggle = () => {
         setPopupVisible(!isPopupVisible);
     };
+
+    const handleLogout = async () => {
+        await logoutUser();
+        setUser(null);
+        router.push("/auth");
+    };
+
     return (
         <footer className="">
             <div className="mx-auto w-full max-w-screen-xl p-4 py-6 lg:py-8">
@@ -23,7 +30,7 @@ const Footer = () => {
                         </a>
                     </div>
                     <div className="grid grid-cols-2 gap-8 sm:gap-6 sm:grid-cols-2">
-                        {session ? (
+                        {user ? (
                             <>
                                 <div>
                                     <h2 className="mb-6">
@@ -42,12 +49,12 @@ const Footer = () => {
                                             {isPopupVisible && (
                                                 <div className=''>
                                                     <div className='' onClick={handlePopupToggle}></div>
-                                                    <PopUpChangePassword onClose={handlePopupToggle} userId={user?.username || ""} />
+                                                    <PopUpChangePassword onClose={handlePopupToggle} />
                                                 </div>
                                             )}
                                         </li>
                                         <li>
-                                            <a onClick={() => { signOut(); }} className="hover:underline text-passive">Çıkış Yap</a>
+                                            <a onClick={handleLogout} className="hover:underline text-passive cursor-pointer">Çıkış Yap </a>
                                         </li>
                                     </ul>
                                 </div>

@@ -27,10 +27,15 @@ export default async function RootLayout({
   const session = await getServerSession();
   const cookieStore = cookies();
   const accessToken = cookieStore.get('access_token')?.value;
+  const csrfToken = cookieStore.get('csrf_access_token')?.value;
 
   let user = null;
   if (accessToken) {
-    user = await fetchUser(accessToken);
+    try {
+      user = await fetchUser(accessToken);
+    } catch (error) {
+      console.error('Error fetching user:', error);
+    }
   }
 
   // Logout handler (server component, so just reload page after logout)

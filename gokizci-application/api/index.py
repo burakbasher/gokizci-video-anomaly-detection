@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, make_response
 from mongoengine import connect
 from models.user import User
 import bcrypt
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_csrf_token
 from flask_cors import CORS
 from datetime import timedelta
 import os
@@ -30,9 +30,9 @@ CORS(app,
      resources={r"/*": {
          "origins": ["http://localhost:3000"],
          "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-         "allow_headers": ["Content-Type", "Authorization"],
+         "allow_headers": ["Content-Type", "Authorization", "X-CSRF-Token"],
          "supports_credentials": True,
-         "expose_headers": ["Content-Type", "Authorization"],
+         "expose_headers": ["Content-Type", "Authorization", "X-CSRF-Token"],
          "max_age": 3600
      }},
      supports_credentials=True)
@@ -40,11 +40,15 @@ CORS(app,
 # JWT Configuration
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'your-secret-key')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
-app.config['JWT_COOKIE_SECURE'] = False
+app.config['JWT_COOKIE_SECURE'] = False  # Development için False, production'da True olmalı
 app.config['JWT_COOKIE_HTTPONLY'] = True
 app.config['JWT_COOKIE_SAMESITE'] = 'Lax'
 app.config['JWT_TOKEN_LOCATION'] = ['cookies']
 app.config['JWT_ACCESS_COOKIE_NAME'] = 'access_token'
+app.config['JWT_COOKIE_CSRF_PROTECT'] = True
+app.config['JWT_CSRF_CHECK_FORM'] = True
+app.config['JWT_CSRF_IN_COOKIES'] = True
+app.config['JWT_CSRF_METHODS'] = ['POST', 'PUT', 'DELETE', 'PATCH']
 jwt = JWTManager(app)
 
 # MongoDB connection
@@ -214,7 +218,7 @@ def register():
             'access_token',
             access_token,
             httponly=True,
-            secure=True,
+            secure=False,
             samesite='Lax',
             max_age=86400,
             path='/'
@@ -238,12 +242,18 @@ def login():
         if not user or not user.check_password(data['password']):
             return jsonify({'error': 'Invalid email or password'}), 401
 
+        # Access token oluştur
         access_token = create_access_token(identity=str(user.id))
+        
+        # CSRF token oluştur
+        csrf_token = get_csrf_token(access_token)
 
         response = make_response(jsonify({
             'message': 'Login successful',
             'user': user.to_dict()
         }))
+        
+        # Access token cookie'sini ayarla
         response.set_cookie(
             'access_token',
             access_token,
@@ -253,6 +263,21 @@ def login():
             max_age=86400,
             path='/'
         )
+        
+        # CSRF token cookie'sini ayarla
+        response.set_cookie(
+            'csrf_access_token',
+            csrf_token,
+            httponly=True,
+            secure=False,
+            samesite='Lax',
+            max_age=3600,
+            path='/'
+        )
+        
+        # CSRF token'ı header'a ekle
+        response.headers['X-CSRF-Token'] = csrf_token
+        
         return response
 
     except Exception as e:
@@ -284,6 +309,44 @@ def logout():
     response = make_response(jsonify({'message': 'Logout successful'}))
     response.delete_cookie('access_token', path='/')
     return response
+
+@app.route('/api/changePassword', methods=['POST', 'OPTIONS'])
+@jwt_required()
+def change_password():
+    if request.method == 'OPTIONS':
+        return '', 200
+
+    try:
+        # JWT'den kullanıcı ID'sini al
+        current_user_id = get_jwt_identity()
+        app.logger.info(f"Password change request for user: {current_user_id}")
+
+        data = request.get_json()
+        old_password = data.get('oldPassword')
+        new_password = data.get('newPassword')
+
+        if not all([old_password, new_password]):
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        # Kullanıcıyı JWT'den gelen ID ile bul
+        user = User.find_by_id(ObjectId(current_user_id))
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Eski şifreyi kontrol et
+        if not user.check_password(old_password):
+            return jsonify({'error': 'Current password is incorrect'}), 400
+
+        # Yeni şifreyi güncelle
+        user.password = new_password
+        user.save()
+
+        app.logger.info(f"Password changed successfully for user: {current_user_id}")
+        return jsonify({'message': 'Password changed successfully'}), 200
+
+    except Exception as e:
+        app.logger.error(f"PASSWORD CHANGE ERROR: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/devices', methods=['POST'])
 def create_device():
@@ -481,6 +544,40 @@ def handle_device_data(data):
         
     except Exception as e:
         emit('error', {'message': str(e)})
+
+@app.route('/api/csrf-token', methods=['GET'])
+def get_csrf_token_route():
+    try:
+        # Geçici bir access token oluştur
+        temp_token = create_access_token(identity='temp')
+        
+        # Bu token için CSRF token oluştur
+        csrf_token = get_csrf_token(temp_token)
+        
+        # Response oluştur
+        response = make_response(jsonify({
+            'csrf_token': csrf_token,
+            'message': 'CSRF token generated successfully'
+        }))
+        
+        # CSRF token'ı cookie olarak ayarla
+        response.set_cookie(
+            'csrf_access_token',
+            csrf_token,
+            httponly=True,
+            secure=False,  # Development için False, production'da True olmalı
+            samesite='Lax',
+            max_age=3600,
+            path='/'
+        )
+        
+        # CSRF token'ı header'a ekle
+        response.headers['X-CSRF-Token'] = csrf_token
+        
+        return response
+    except Exception as e:
+        app.logger.error(f"CSRF token generation error: {e}")
+        return jsonify({'error': 'Failed to generate CSRF token'}), 500
 
 if __name__ == '__main__':
     app.logger.setLevel("DEBUG")
