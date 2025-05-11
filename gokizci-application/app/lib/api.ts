@@ -197,3 +197,27 @@ export async function changePassword(oldPassword: string, newPassword: string) {
     throw error;
   }
 }
+
+export async function addDevice(deviceData: { name: string; type: string; stream_url: string }) {
+  try {
+    const headers = await getHeaders();
+    
+    const res = await fetch('http://localhost:5000/api/devices', {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify(deviceData)
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Cihaz eklenirken bir hata oluştu.');
+    }
+
+    const data = await res.json();
+    return data.device;
+  } catch (error) {
+    console.error('Add device error:', error);
+    throw error;
+  }
+}

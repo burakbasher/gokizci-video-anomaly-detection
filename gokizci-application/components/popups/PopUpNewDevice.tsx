@@ -2,6 +2,7 @@
 
 import React, { useState, ChangeEvent } from 'react';
 import { BlackButton } from '../buttons/BlackButton';
+import { addDevice } from '@/app/lib/api';
 
 interface PopUpNewDeviceProps {
     onClose: () => void;
@@ -72,25 +73,12 @@ export function PopUpNewDevice({ onClose, onSubmit }: PopUpNewDeviceProps) {
         }
 
         try {
-            const response = await fetch('http://localhost:5000/api/devices', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify(formValues)
-            });
-
-            if (!response.ok) {
-                throw new Error('Cihaz eklenirken bir hata oluştu.');
-            }
-
-            const data = await response.json();
+            const device = await addDevice(formValues);
             tempErrors.success = 'Cihaz başarıyla eklendi.';
             setErrors(tempErrors);
             
             // Call onSubmit with the new device data
-            onSubmit(data.device);
+            onSubmit(device);
             
             // Close popup after successful submission
             setTimeout(() => {
@@ -110,104 +98,110 @@ export function PopUpNewDevice({ onClose, onSubmit }: PopUpNewDeviceProps) {
     };
 
     return (
-        <div className='absolute grid gap-4 border border-stroke-main h-[380px] rounded-lg w-[350px] bg-background-surface mt-[10%] shadow-lg border-t-4 border-t-dark'>
-            <form className='m-6 grid gap-4' onSubmit={handleSubmit}>
-                <div className='flex justify-between items-center'>
-                    <p className='text-dark text-center text-2xl font-medium'>Yeni Cihaz Ekle</p>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="text-gray-500 hover:text-gray-700"
-                    >
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
+        <>
+            {/* Modal */}
+            <div id="popup-modal" tabIndex={-1} className="overflow-y-auto overflow-x-hidden bg-background/40 fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full flex">
+                <div className="relative p-4 w-full max-w-md max-h-full">
+                    <div className="relative border border-stroke-main rounded-lg bg-background-surface mt-[10%] shadow-lg border-t-4 border-t-primary border-1 border-background-alt">
+                        <button
+                            type="button"
+                            className="absolute top-3 right-2.5 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
+                            onClick={onClose}
+                        >
+                            <svg className="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                                <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
+                            </svg>
+                            <span className="sr-only">Close modal</span>
+                        </button>
+                        <form className='m-6 grid gap-4' onSubmit={handleSubmit}>
+                            <p className='text-dark text-center text-2xl font-medium'>Yeni Cihaz Ekle</p>
 
-                {/* Device Name Input */}
-                <div className='relative'>
-                    <input
-                        type="text"
-                        id="name"
-                        value={formValues.name}
-                        onChange={handleInputChange}
-                        className={`block px-2.5 pb-2.5 pt-4 w-full text-sm text-gray-900 bg-transparent rounded-lg border ${errors.name ? 'border-red-600' : 'border-stroke-main'} appearance-none dark:text-white dark:border-stroke-main dark:focus:border-stroke-dark focus:outline-none focus:ring-0 focus:border-stroke-dark peer`}
-                        placeholder=" "
-                    />
-                    <label
-                        htmlFor="name"
-                        className={`absolute text-sm ${errors.name ? 'text-red-600' : 'text-secondary'} dark:text-secondary duration-300 transform -translate-y-4 scale-75 top-2 z-10 origin-[0] bg-background-surface dark:bg-gray-900 px-2 peer-focus:px-2 peer-focus:text-dark peer-focus:dark:text-dark peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-4 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto start-1`}
-                    >
-                        Cihaz Adı
-                    </label>
-                    {errors.name && (
-                        <p className="mt-2 text-xs text-red-600 dark:text-red-400">
-                            <span className="font-medium">Hata:</span> {errors.name}
-                        </p>
-                    )}
-                </div>
+                            {/* Device Name Input */}
+                            <div className='relative'>
+                                <input
+                                    type="text"
+                                    id="name"
+                                    value={formValues.name}
+                                    onChange={handleInputChange}
+                                    className={`block px-2.5 pb-2.5 pt-4 w-full text-sm text-gray-900 bg-transparent rounded-lg border ${errors.name ? 'border-red-600' : 'border-stroke-main'} appearance-none dark:text-white dark:border-stroke-main dark:focus:border-stroke-dark focus:outline-none focus:ring-0 focus:border-stroke-dark peer`}
+                                    placeholder=" "
+                                />
+                                <label
+                                    htmlFor="name"
+                                    className={`absolute text-sm ${errors.name ? 'text-red-600' : 'text-secondary'} dark:text-secondary duration-300 transform -translate-y-4 scale-75 top-2 z-10 origin-[0] bg-background-surface dark:bg-gray-900 px-2 peer-focus:px-2 peer-focus:text-dark peer-focus:dark:text-dark peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-4 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto start-1`}
+                                >
+                                    Cihaz Adı
+                                </label>
+                                {errors.name && (
+                                    <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                                        <span className="font-medium">Hata:</span> {errors.name}
+                                    </p>
+                                )}
+                            </div>
 
-                {/* Device Type Select */}
-                <div className='relative'>
-                    <select
-                        id="type"
-                        value={formValues.type}
-                        onChange={handleInputChange}
-                        className={`block px-2.5 pb-2.5 pt-4 w-full text-sm text-gray-900 bg-transparent rounded-lg border ${errors.type ? 'border-red-600' : 'border-stroke-main'} appearance-none dark:text-white dark:border-stroke-main dark:focus:border-stroke-dark focus:outline-none focus:ring-0 focus:border-stroke-dark peer`}
-                    >
-                        {deviceTypes.map(option => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
-                            </option>
-                        ))}
-                    </select>
-                    <label
-                        htmlFor="type"
-                        className={`absolute text-sm ${errors.type ? 'text-red-600' : 'text-secondary'} dark:text-secondary duration-300 transform -translate-y-4 scale-75 top-2 z-10 origin-[0] bg-background-surface dark:bg-gray-900 px-2 peer-focus:px-2 peer-focus:text-dark peer-focus:dark:text-dark peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-4 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto start-1`}
-                    >
-                        Cihaz Tipi
-                    </label>
-                    {errors.type && (
-                        <p className="mt-2 text-xs text-red-600 dark:text-red-400">
-                            <span className="font-medium">Hata:</span> {errors.type}
-                        </p>
-                    )}
-                </div>
+                            {/* Device Type Select */}
+                            <div className='relative'>
+                                <select
+                                    id="type"
+                                    value={formValues.type}
+                                    onChange={handleInputChange}
+                                    className={`block px-2.5 pb-2.5 pt-4 w-full text-sm text-gray-900 bg-transparent rounded-lg border ${errors.type ? 'border-red-600' : 'border-stroke-main'} appearance-none dark:text-white dark:border-stroke-main dark:focus:border-stroke-dark focus:outline-none focus:ring-0 focus:border-stroke-dark peer`}
+                                >
+                                    {deviceTypes.map(option => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                                <label
+                                    htmlFor="type"
+                                    className={`absolute text-sm ${errors.type ? 'text-red-600' : 'text-secondary'} dark:text-secondary duration-300 transform -translate-y-4 scale-75 top-2 z-10 origin-[0] bg-background-surface dark:bg-gray-900 px-2 peer-focus:px-2 peer-focus:text-dark peer-focus:dark:text-dark peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-4 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto start-1`}
+                                >
+                                    Cihaz Tipi
+                                </label>
+                                {errors.type && (
+                                    <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                                        <span className="font-medium">Hata:</span> {errors.type}
+                                    </p>
+                                )}
+                            </div>
 
-                {/* Stream URL Input */}
-                <div className='relative'>
-                    <input
-                        type="text"
-                        id="stream_url"
-                        value={formValues.stream_url}
-                        onChange={handleInputChange}
-                        className={`block px-2.5 pb-2.5 pt-4 w-full text-sm text-gray-900 bg-transparent rounded-lg border ${errors.stream_url ? 'border-red-600' : 'border-stroke-main'} appearance-none dark:text-white dark:border-stroke-main dark:focus:border-stroke-dark focus:outline-none focus:ring-0 focus:border-stroke-dark peer`}
-                        placeholder=" "
-                    />
-                    <label
-                        htmlFor="stream_url"
-                        className={`absolute text-sm ${errors.stream_url ? 'text-red-600' : 'text-secondary'} dark:text-secondary duration-300 transform -translate-y-4 scale-75 top-2 z-10 origin-[0] bg-background-surface dark:bg-gray-900 px-2 peer-focus:px-2 peer-focus:text-dark peer-focus:dark:text-dark peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-4 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto start-1`}
-                    >
-                        Stream URL
-                    </label>
-                    {errors.stream_url && (
-                        <p className="mt-2 text-xs text-red-600 dark:text-red-400">
-                            <span className="font-medium">Hata:</span> {errors.stream_url}
-                        </p>
-                    )}
-                </div>
+                            {/* Stream URL Input */}
+                            <div className='relative'>
+                                <input
+                                    type="text"
+                                    id="stream_url"
+                                    value={formValues.stream_url}
+                                    onChange={handleInputChange}
+                                    className={`block px-2.5 pb-2.5 pt-4 w-full text-sm text-gray-900 bg-transparent rounded-lg border ${errors.stream_url ? 'border-red-600' : 'border-stroke-main'} appearance-none dark:text-white dark:border-stroke-main dark:focus:border-stroke-dark focus:outline-none focus:ring-0 focus:border-stroke-dark peer`}
+                                    placeholder=" "
+                                />
+                                <label
+                                    htmlFor="stream_url"
+                                    className={`absolute text-sm ${errors.stream_url ? 'text-red-600' : 'text-secondary'} dark:text-secondary duration-300 transform -translate-y-4 scale-75 top-2 z-10 origin-[0] bg-background-surface dark:bg-gray-900 px-2 peer-focus:px-2 peer-focus:text-dark peer-focus:dark:text-dark peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-4 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto start-1`}
+                                >
+                                    Stream URL
+                                </label>
+                                {errors.stream_url && (
+                                    <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                                        <span className="font-medium">Hata:</span> {errors.stream_url}
+                                    </p>
+                                )}
+                            </div>
 
-                {errors.success && (
-                    <p className="mt-2 text-xs text-green-600 dark:text-green-400">
-                        {errors.success}
-                    </p>
-                )}
+                            {errors.success && (
+                                <p className="mt-2 text-xs text-green-600 dark:text-green-400">
+                                    {errors.success}
+                                </p>
+                            )}
 
-                <div className='w-full'>
-                    <BlackButton text="Kaydet" />
+                            <div className='w-full'>
+                                <BlackButton text="Kaydet" />
+                            </div>
+                        </form>
+                    </div>
                 </div>
-            </form>
-        </div>
+            </div>
+        </>
     );
 } 

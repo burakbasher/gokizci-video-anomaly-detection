@@ -1,3 +1,5 @@
+"use client";
+
 import { useRouter } from 'next/navigation'
 import { BlackButton } from '../buttons/BlackButton';
 import React, { useEffect, useState } from 'react';

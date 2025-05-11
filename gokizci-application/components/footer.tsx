@@ -17,7 +17,8 @@ const Footer = () => {
     const handleLogout = async () => {
         await logoutUser();
         setUser(null);
-        router.push("/auth");
+        router.push("/");
+
     };
 
     return (

@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { DeviceCard } from './DeviceCard';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import { Loading } from '../loading';
-import { useDeviceSocket } from '../hooks/useDeviceSocket';
 import { PopUpNewDevice } from '../popups/PopUpNewDevice';
 import { Device } from '@/app/lib/definitions';
 import { fetchDevicesPaginated, deleteDevice } from '@/app/lib/api';
@@ -20,26 +19,7 @@ export const DevicePanel = ({ devices: initialDevices }: DevicePanelProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showNewDevicePopup, setShowNewDevicePopup] = useState(false);
   const devicePerPage = 2;
-  const { isConnected } = useWebSocket();
-
-  const {
-    connect,
-    disconnect,
-    sendCommand,
-    sendData
-  } = useDeviceSocket({
-    deviceId: 'new_device',
-    deviceType: 'custom',
-    onStatusChange: (status) => {
-      console.log('New device status:', status);
-    },
-    onDataUpdate: (data) => {
-      console.log('New device data:', data);
-    },
-    onError: (error) => {
-      console.error('New device error:', error);
-    }
-  });
+  const { isConnected, socket } = useWebSocket();
 
   const getDevices = async (page = 1) => {
     try {
@@ -65,7 +45,12 @@ export const DevicePanel = ({ devices: initialDevices }: DevicePanelProps) => {
 
   const handleNewDeviceSubmit = async (deviceData: Device) => {
     try {
-      await connect();
+      if (socket) {
+        socket.emit('device_connect', {
+          device_id: deviceData.id,
+          device_type: deviceData.type
+        });
+      }
       await getDevices();
       setShowNewDevicePopup(false);
     } catch (error) {
@@ -76,7 +61,11 @@ export const DevicePanel = ({ devices: initialDevices }: DevicePanelProps) => {
   const handleRemoveDevice = async (deviceId: string) => {
     try {
       await deleteDevice(deviceId);
-      disconnect();
+      if (socket) {
+        socket.emit('device_disconnect', {
+          device_id: deviceId
+        });
+      }
       getDevices();
     } catch (error) {
       console.error('Error removing device:', error);
@@ -118,8 +107,8 @@ export const DevicePanel = ({ devices: initialDevices }: DevicePanelProps) => {
         )}
         {!isLoading && (
           <div className='grid gap-8 grid-cols-2 pt-4 justify-items-center pb-1'>
-            {devices.map((device, index) => (
-              <DeviceCard key={index} device={device} />
+            {devices.map((device) => (
+              <DeviceCard key={`${device.id}-${currentPage}`} device={device} />
             ))}
           </div>
         )}
