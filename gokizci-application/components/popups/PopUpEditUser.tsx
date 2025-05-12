@@ -26,7 +26,8 @@
 
 import React, { useState, ChangeEvent } from 'react';
 import { BlackButton } from '../buttons/BlackButton';
-import { userFormControls, Errors, initialErrors,  } from '@/app/lib/definitions';
+import { userFormControls, Errors, initialErrors, } from '@/app/lib/definitions';
+import { editUser } from '@/app/lib/api';
 
 export function PopUpEditUser({
     onClose,
@@ -73,26 +74,13 @@ export function PopUpEditUser({
         }
 
         try {
-            // request user edit
-            const res = await fetch("/api/editUser", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    id: userId,
-                    userName: formValues.userName,
-                    password: isPasswordChanged ? formValues.password : undefined, // send if password is defined
-                    role: formValues.role,
-                }),
+            await editUser(userId, {
+                username: formValues.userName,
+                password: isPasswordChanged ? formValues.password : undefined,
+                role: formValues.role
             });
-
-            if (res.status === 200) {
-                tempErrors.success = 'Kullanıcı başarıyla kaydedildi.';
-                setErrors(tempErrors);
-            } else {
-                throw new Error('Kullanıcı güncellenemedi.');
-            }
+            tempErrors.success = 'Kullanıcı başarıyla kaydedildi.';
+            setErrors(tempErrors);
         } catch (error) {
             tempErrors.userName = 'Hata, lütfen tekrar deneyin.';
             setErrors(tempErrors);
@@ -127,7 +115,7 @@ export function PopUpEditUser({
                 className="overflow-y-auto overflow-x-hidden bg-background/40 fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full flex"
             >
                 <div className="relative p-4 w-[380px] max-w-md max-h-full">
-                    <div className="relative border border-stroke-main rounded-lg bg-background-surface mt-[10%] shadow-lg border-t-4 border-t-dark">
+                    <div className="relative border border-stroke-main rounded-lg bg-background-surface mt-[10%] shadow-lg border-t-4 border-t-primary">
                         <button
                             type="button"
                             className="absolute top-3 right-2.5 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"

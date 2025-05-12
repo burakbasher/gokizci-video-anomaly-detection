@@ -579,6 +579,54 @@ def get_csrf_token_route():
         app.logger.error(f"CSRF token generation error: {e}")
         return jsonify({'error': 'Failed to generate CSRF token'}), 500
 
+@app.route('/api/users', methods=['GET'])
+@jwt_required()
+def get_users():
+    try:
+        # Pagination parameters
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 6))
+        skip = (page - 1) * limit
+
+        # Query all users
+        total = User.objects.count()
+        users = User.objects.skip(skip).limit(limit)
+        return jsonify({
+            'users': [user.to_dict() for user in users],
+            'total': total
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/users', methods=['POST'])
+@jwt_required()
+def add_user():
+    try:
+        data = request.get_json()
+
+        # Check for required fields
+        required_fields = ['username', 'email', 'password', 'role']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+
+        # Check if email is already registered
+        if User.find_by_email(data['email']):
+            return jsonify({'error': 'Email already registered'}), 400
+
+        # Create new user
+        user = User(
+            username=data['username'],
+            email=data['email'],
+            password=data['password'],
+            role=data['role']
+        )
+        user.save()
+
+        return jsonify({'message': 'User added successfully', 'user': user.to_dict()}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.logger.setLevel("DEBUG")
     app.logger.debug("Logging system initialized.")

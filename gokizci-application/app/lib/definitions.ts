@@ -21,8 +21,8 @@ export const userFormControls = [
         label: "Rol",
         componentType: "select",
         options: [
-            { value: "Admin", label: "Admin" },
-            { value: "User", label: "Kullanıcı" },
+            { value: "admin", label: "Admin" },
+            { value: "user", label: "Kullanıcı" },
         ],
     },
 ];
@@ -65,7 +65,9 @@ export interface User {
     username: string;
     email: string;
     role: string;
-  }
+    is_active: boolean;
+    created_at: string;
+}
 
 // Başlangıç State Değerleri
 export const initialErrors: Errors = {
@@ -77,6 +79,7 @@ export const initialErrors: Errors = {
 
 export const initialFormValues = {
     userName: '',
+    email: '',
     password: '',
     role: 'User', // Varsayılan rol
 };

@@ -117,7 +117,7 @@ export async function loginUser(email: string, password: string) {
   }
 }
 
-export async function registerUser(username: string, email: string, password: string) {
+export async function registerUser(username: string, email: string, password: string, role: string = 'user') {
   try {
     const headers = await getHeaders();
     
@@ -125,7 +125,7 @@ export async function registerUser(username: string, email: string, password: st
       method: 'POST',
       headers,
       credentials: 'include',
-      body: JSON.stringify({ username, email, password }),
+      body: JSON.stringify({ username, email, password, role }),
     });
     
     const data = await res.json();
@@ -218,6 +218,74 @@ export async function addDevice(deviceData: { name: string; type: string; stream
     return data.device;
   } catch (error) {
     console.error('Add device error:', error);
+    throw error;
+  }
+}
+
+export async function fetchUsers(page = 1, limit = 6) {
+  try {
+    const headers = await getHeaders();
+    const res = await fetch(`http://localhost:5000/api/users?page=${page}&limit=${limit}`, {
+      method: 'GET',
+      headers,
+      credentials: 'include',
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Kullanıcılar alınırken bir hata oluştu.');
+    }
+
+    const data = await res.json();
+    return { users: data.users, total: data.total };
+  } catch (error) {
+    console.error('Fetch users error:', error);
+    throw error;
+  }
+}
+
+export async function addUser(userData: { username: string; email: string; password: string; role: string }) {
+  try {
+    const headers = await getHeaders();
+    const res = await fetch('http://localhost:5000/api/users', {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify(userData)
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Kullanıcı eklenirken bir hata oluştu.');
+    }
+
+    const data = await res.json();
+    return data.user;
+  } catch (error) {
+    console.error('Add user error:', error);
+    throw error;
+  }
+}
+
+export async function editUser(userId: string, userData: { username?: string; email?: string; password?: string; role?: string }) {
+  try {
+    const headers = await getHeaders();
+    const res = await fetch(`http://localhost:5000/api/users/${userId}`, {
+      method: 'PUT',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify(userData)
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Kullanıcı güncellenirken bir hata oluştu.');
+    }
+
+    const data = await res.json();
+    return data.user;
+  } catch (error) {
+    console.error('Edit user error:', error);
     throw error;
   }
 }

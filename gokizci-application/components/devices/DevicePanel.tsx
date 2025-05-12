@@ -8,14 +8,11 @@ import { PopUpNewDevice } from '../popups/PopUpNewDevice';
 import { Device } from '@/app/lib/definitions';
 import { fetchDevicesPaginated, deleteDevice } from '@/app/lib/api';
 
-interface DevicePanelProps {
-  devices: Device[];
-}
 
-export const DevicePanel = ({ devices: initialDevices }: DevicePanelProps) => {
-  const [devices, setDevices] = useState<Device[]>(initialDevices);
+export const DevicePanel = () => {
+  const [devices, setDevices] = useState<Device[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalDevices, setTotalDevices] = useState(initialDevices.length);
+  const [totalDevices, setTotalDevices] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [showNewDevicePopup, setShowNewDevicePopup] = useState(false);
   const devicePerPage = 2;
@@ -101,7 +98,7 @@ export const DevicePanel = ({ devices: initialDevices }: DevicePanelProps) => {
         </div>
 
         {isLoading && (
-          <div className='flex justify-center items-center h-40 '>
+          <div className='flex justify-center items-center h-80 '>
             <Loading />
           </div>
         )}
