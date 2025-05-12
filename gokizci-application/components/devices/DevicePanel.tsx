@@ -75,9 +75,9 @@ export const DevicePanel = () => {
         <div className='mb-6'>
           <div className="flex justify-between items-center">
             <div>
-              <h2 className='text-primary text-2xl font-semibold'>Görüntü Cihazları Yönetim Paneli</h2>
+              <h2 className='text-primary text-2xl font-semibold'>Görüntü Kaynakları Yönetim Paneli</h2>
               <p className='text-primary-light text-md'>
-                Yeni bir cihaz eklemeden önce lütfen gerekli bağlantıları sağladığınızdan emin olunuz.
+                Yeni bir kaynak eklemeden önce lütfen gerekli bağlantıları sağladığınızdan emin olunuz.
               </p>
               {!isConnected && (
                 <p className="text-red-600 text-sm mt-2">● Sunucu bağlantısı kesildi</p>
@@ -111,9 +111,9 @@ export const DevicePanel = () => {
         )}
         <div className="flex flex-col items-center mt-8">
           <span className="text-sm text-muted">
-            Toplam <span className="font-semibold text-primary">{totalDevices}</span> cihazdan
-            <span className="font-semibold text-primary"> {(currentPage - 1) * devicePerPage + 1}</span> -
-            <span className="font-semibold text-primary"> {Math.min(currentPage * devicePerPage, totalDevices)}</span> arası gösteriliyor.
+            Toplam <span className="font-semibold text-primary">{totalDevices}</span> kaynaktan
+            <span className="font-semibold text-primary"> {(currentPage - 1) * devicePerPage + 1}.</span> ile
+            <span className="font-semibold text-primary"> {Math.min(currentPage * devicePerPage, totalDevices)}.</span> arasındaki kaynaklar gösteriliyor.
           </span>
 
           <div className="inline-flex mt-2">

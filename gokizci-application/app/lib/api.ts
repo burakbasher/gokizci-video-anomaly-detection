@@ -4,7 +4,7 @@ let csrfToken: string | null = null;
 async function getCsrfToken() {
   try {
     if (!csrfToken) {
-      const res = await fetch('http://localhost:5000/api/csrf-token', {
+      const res = await fetch('http://localhost:5000/api/auth/csrf-token', {
         method: 'GET',
         credentials: 'include',
         headers: {

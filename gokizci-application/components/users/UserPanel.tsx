@@ -34,16 +34,6 @@ export function UserPanel() {
         setPopupVisible(!isPopupVisible);
     };
 
-    const handleUserSubmit = async (userData: { username: string; email: string; password: string; role: string }) => {
-        try {
-            await addUser(userData);
-            getUsers(currentPage);
-            setPopupVisible(false);
-        } catch (error) {
-            console.error("Error adding user:", error);
-        }
-    };
-
     return (
         <div className="relative flex min-h-screen p-6 place-content-center">
             <div className="grid w-[1200px] h-[600px] p-10">
@@ -70,7 +60,7 @@ export function UserPanel() {
 
                 <div className="grid grid-rows-2 grid-cols-3 min-w-[1000px] h-full gap-8 mt-4 mx-[5%]">
                     {users.map((user, index) => (
-                        <UserCard key={index} id={user.id} role={user.role} name={user.username} />
+                        <UserCard key={index} id={user.id} role={user.role} email={user.email} name={user.username} />
                     ))}
                 </div>
 
@@ -108,7 +98,7 @@ export function UserPanel() {
             </div>
 
             {isPopupVisible && (
-                <PopUpNewUser onClose={handlePopupToggle} onSubmit={handleUserSubmit} />
+                <PopUpNewUser onClose={handlePopupToggle} />
             )}
         </div>
     );

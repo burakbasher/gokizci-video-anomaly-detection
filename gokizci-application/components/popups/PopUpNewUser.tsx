@@ -7,10 +7,9 @@ import { addUser } from '@/app/lib/api';
 
 interface PopUpNewUserProps {
     onClose: () => void;
-    onSubmit: (userData: { username: string; email: string; password: string; role: string }) => void;
 }
 
-export function PopUpNewUser({ onClose, onSubmit }: PopUpNewUserProps) {
+export function PopUpNewUser({ onClose }: PopUpNewUserProps) {
 
     const [showPassword, setShowPassword] = useState(false);  // Password toggle state
     const [errors, setErrors] = useState<Errors>(initialErrors);

@@ -5,10 +5,11 @@ import { Edit2 } from "lucide-react";
 interface Props {
     id: string;
     name: string;
+    email: string;
     role: string;
 }
 
-export function UserCard({ id, name, role }: Props) {
+export function UserCard({ id, name, role, email }: Props) {
     const [isPopupVisible, setPopupVisible] = useState(false);
 
     const handlePopupToggle = () => {
@@ -19,7 +20,7 @@ export function UserCard({ id, name, role }: Props) {
         <div className="p-5 w-full bg-background-surface border border-background-alt shadow-sm hover:shadow-md rounded-lg transition">
             {/* Header */}
             <div className="flex justify-between items-center mb-2">
-                <p className="text-primary text-xl font-semibold">Kullanıcı</p>
+                <p className="text-primary text-xl font-semibold">{name}</p>
                 <div className="relative group">
                     <Edit2
                         className="w-5 h-5 text-primary-light hover:text-primary cursor-pointer"
@@ -42,7 +43,7 @@ export function UserCard({ id, name, role }: Props) {
                     {name.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                    <p className="text-primary font-medium text-base">{name}</p>
+                    <p className="text-primary font-medium text-base">{email}</p>
                     <span
                         className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-medium 
               ${role === "admin"
