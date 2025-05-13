@@ -1,31 +1,34 @@
 // Form Kontrolleri
 export const userFormControls = [
     {
-        id: "userName",
-        type: "text",
-        placeholder: "Kullanıcı Adı",
-        label: "Kullanıcı Adı",
-        componentType: "input",
+      id: 'userName',
+      label: 'Kullanıcı Adı',
+      type: 'text',
+      componentType: 'input',
     },
     {
-        id: "password",
-        type: "password",
-        placeholder: "Parola",
-        label: "Parola",
-        componentType: "input",
+      id: 'email',
+      label: 'E-posta',
+      type: 'email',
+      componentType: 'input',
     },
     {
-        id: "role",
-        type: "select",
-        placeholder: "Rol Seçin",
-        label: "Rol",
-        componentType: "select",
-        options: [
-            { value: "admin", label: "Admin" },
-            { value: "user", label: "Kullanıcı" },
-        ],
+      id: 'password',
+      label: 'Parola',
+      type: 'password',
+      componentType: 'input',
     },
-];
+    {
+      id: 'role',
+      label: 'Rol',
+      componentType: 'select',
+      options: [
+        { value: 'admin', label: 'Admin' },
+        { value: 'user', label: 'Kullanıcı' },
+      ],
+    },
+  ];
+  
 
 
 export const passwordChangeFormControls = [
@@ -55,6 +58,7 @@ export const passwordChangeFormControls = [
 // Tip Tanımları
 export interface Errors {
     userName: string;
+    email: string;
     password: string;
     role: string;
     success: string;
@@ -72,6 +76,7 @@ export interface User {
 // Başlangıç State Değerleri
 export const initialErrors: Errors = {
     userName: '',
+    email: '',
     password: '',
     role: '',
     success: '',

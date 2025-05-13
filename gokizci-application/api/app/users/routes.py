@@ -30,7 +30,7 @@ def add_user():
         data = request.get_json()
         required_fields = ['username', 'email', 'password', 'role']
         for field in required_fields:
-            if field not in data:
+            if not data.get(field): 
                 return jsonify({'error': f'Missing required field: {field}'}), 400
 
         if User.find_by_email(data['email']):
@@ -42,11 +42,49 @@ def add_user():
             password=data['password'],
             role=data['role']
         )
+
+        user.validate()  # raise ValidationError if something missing or invalid
+
         user.save()
 
         return jsonify({
             'message': 'User added successfully',
             'user': user.to_dict()
         }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+
+@user_bp.route('/<user_id>', methods=['PUT'])
+@jwt_required()
+def edit_user(user_id):
+    try:
+
+        user = User.find_by_id(ObjectId(user_id))
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        # Güncellenebilir alanlar
+        if 'username' in data:
+            user.username = data['username']
+        if 'email' in data:
+            user.email = data['email']
+        if 'password' in data:
+            user.password = data['password']
+        if 'role' in data:
+            user.role = data['role']
+
+        user.validate()
+        user.save()
+
+        return jsonify({
+            'message': 'User updated successfully',
+            'user': user.to_dict()
+        }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

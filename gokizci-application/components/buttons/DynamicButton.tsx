@@ -10,7 +10,7 @@ export function DynamicButton ({ dynamicBg, text, onClick}: DynamicButtonProps) 
       className={`flex h-10 items-center rounded-lg ${dynamicBg} w-full text-center `}
       onClick={onClick} 
     >
-      <span className="hidden md:block w-full antialiased text-light font-normal tracking-wide text-sm"> {text} </span>{' '}
+      <span className="hidden md:block w-full antialiased text-light font-normal tracking-wide text-sm select-none"> {text} </span>{' '}
     </button>
   );
 }

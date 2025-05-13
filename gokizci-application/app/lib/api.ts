@@ -1,57 +1,63 @@
-// CSRF token yönetimi için yardımcı fonksiyonlar
 let csrfToken: string | null = null;
 
-async function getCsrfToken() {
-  try {
-    if (!csrfToken) {
-      const res = await fetch('http://localhost:5000/api/auth/csrf-token', {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-      
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || 'CSRF token alınamadı');
-      }
-      
-      const data = await res.json();
-      csrfToken = data.csrf_token;
-      
-      // Header'dan CSRF token'ı al
-      const headerToken = res.headers.get('X-CSRF-Token');
-      if (headerToken) {
-        csrfToken = headerToken;
-      }
-    }
+
+/**
+ * CSRF token’ı getirir. 
+ * @param force Eğer true ise önbelleğe bakmadan mutlaka sunucudan yeni token alır.
+ */
+export async function getCsrfToken(force = false): Promise<string> {
+  // 1) Eğer önbellekte varsa ve force===false, direkt dön
+  if (!force && csrfToken) {
     return csrfToken;
-  } catch (error) {
-    console.error('CSRF token error:', error);
-    throw error;
   }
+
+  // 2) localStorage’da varsa ve force===false, orayı yükle
+  const stored = localStorage.getItem('csrfToken');
+  if (!force && stored) {
+    csrfToken = stored;
+    return csrfToken;
+  }
+
+  // 3) Aksi halde sunucudan al
+  const res = await fetch('http://localhost:5000/api/auth/csrf-token', {
+    method: 'GET',
+    credentials: 'include',
+    headers: { 'Accept': 'application/json' },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'CSRF token alınamadı');
+  }
+  const data = await res.json();
+  csrfToken = res.headers.get('X-CSRF-Token') || data.csrf_token;
+  if (!csrfToken) {
+    throw new Error('CSRF token boş geldi');
+  }
+
+  // 4) localStorage’a kaydet
+  localStorage.setItem('csrfToken', csrfToken);
+  return csrfToken;
 }
 
-// API istekleri için ortak headers
-async function getHeaders(contentType: boolean = true) {
-  const token = await getCsrfToken();
-  const headers: Record<string, string> = {
-    'X-CSRF-Token': token || '',
+
+/**
+ * Ortak header’ları oluşturur. 
+ * CSRF token’ı header’a ekler, gerekiyorsa body için Content-Type.
+ */
+async function getHeaders(contentType = true): Promise<Record<string,string>> {
+  const token = await getCsrfToken(false);
+  const headers: Record<string,string> = {
+    'X-CSRF-Token': token,
   };
-  
   if (contentType) {
     headers['Content-Type'] = 'application/json';
   }
-  
   return headers;
 }
 
 export async function fetchUser(token?: string) {
   const res = await fetch('http://localhost:5000/api/auth/me', {
-    headers: token ? {
-      Cookie: `access_token=${token}`,
-    } : {},
+    headers: token ? { Cookie: `access_token=${token}` } : {},
     credentials: 'include',
     cache: 'no-store',
   });
@@ -59,6 +65,7 @@ export async function fetchUser(token?: string) {
   const data = await res.json();
   return data.user;
 }
+
 
 export async function fetchDevices() {
   const res = await fetch('http://localhost:5000/api/devices', {
@@ -73,15 +80,15 @@ export async function fetchDevices() {
 export async function logoutUser() {
   try {
     const headers = await getHeaders(false);
-    
     await fetch('http://localhost:5000/api/auth/logout', {
       method: 'POST',
       headers,
       credentials: 'include',
     });
-    
-    // Logout sonrası CSRF token'ı sıfırla
+    // Temizlik
     csrfToken = null;
+    localStorage.removeItem('csrfToken');
+    localStorage.removeItem('isLoggedIn');
   } catch (error) {
     console.error('Logout error:', error);
     throw error;
@@ -90,26 +97,33 @@ export async function logoutUser() {
 
 export async function loginUser(email: string, password: string) {
   try {
+    // Önceki token’ları temizle
+    csrfToken = null;
+    localStorage.removeItem('csrfToken');
+    localStorage.removeItem('isLoggedIn');
+
+    // İstek öncesi headers al (CSRF için fetch tetikleyebilir)
     const headers = await getHeaders();
-    
+
     const res = await fetch('http://localhost:5000/api/auth/login', {
       method: 'POST',
       headers,
       credentials: 'include',
       body: JSON.stringify({ email, password }),
     });
-    
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data.error || 'Giriş başarısız');
     }
-    
-    // CSRF token'ı header'dan al
+
+    // Yeni CSRF token’ı alıp sakla
     const headerToken = res.headers.get('X-CSRF-Token');
     if (headerToken) {
       csrfToken = headerToken;
+      localStorage.setItem('csrfToken', headerToken);
+      localStorage.setItem('isLoggedIn', 'true');
     }
-    
+
     return data.user;
   } catch (error) {
     console.error('Login error:', error);
@@ -117,28 +131,39 @@ export async function loginUser(email: string, password: string) {
   }
 }
 
-export async function registerUser(username: string, email: string, password: string, role: string = 'user') {
+export async function registerUser(
+  username: string,
+  email: string,
+  password: string,
+  role: string = 'user'
+) {
   try {
+    // Önceki token’ları temizle
+    csrfToken = null;
+    localStorage.removeItem('csrfToken');
+    localStorage.removeItem('isLoggedIn');
+
     const headers = await getHeaders();
-    
+
     const res = await fetch('http://localhost:5000/api/auth/register', {
       method: 'POST',
       headers,
       credentials: 'include',
       body: JSON.stringify({ username, email, password, role }),
     });
-    
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data.error || 'Kayıt başarısız');
     }
-    
-    // CSRF token'ı header'dan al
+
+    // Gelen CSRF token’ı sakla
     const headerToken = res.headers.get('X-CSRF-Token');
     if (headerToken) {
       csrfToken = headerToken;
+      localStorage.setItem('csrfToken', headerToken);
+      localStorage.setItem('isLoggedIn', 'true');
     }
-    
+
     return data.user;
   } catch (error) {
     console.error('Register error:', error);
@@ -171,7 +196,7 @@ export async function deleteDevice(deviceId: string) {
 export async function changePassword(oldPassword: string, newPassword: string) {
   try {
     const headers = await getHeaders();
-    
+
     const res = await fetch('http://localhost:5000/api/changePassword', {
       method: 'POST',
       headers,
@@ -181,7 +206,7 @@ export async function changePassword(oldPassword: string, newPassword: string) {
         newPassword,
       }),
     });
-    
+
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       if (res.status === 401) {
@@ -189,7 +214,7 @@ export async function changePassword(oldPassword: string, newPassword: string) {
       }
       throw new Error(data.error || 'Şifre değiştirme başarısız');
     }
-    
+
     const data = await res.json();
     return data;
   } catch (error) {
@@ -201,7 +226,7 @@ export async function changePassword(oldPassword: string, newPassword: string) {
 export async function addDevice(deviceData: { name: string; type: string; stream_url: string }) {
   try {
     const headers = await getHeaders();
-    
+
     const res = await fetch('http://localhost:5000/api/devices', {
       method: 'POST',
       headers,
@@ -267,15 +292,31 @@ export async function addUser(userData: { username: string; email: string; passw
   }
 }
 
-export async function editUser(userId: string, userData: { username?: string; email?: string; password?: string; role?: string }) {
+export async function editUser(
+  userId: string,
+  userData: { username?: string; email?: string; password?: string; role?: string }
+) {
   try {
-    const headers = await getHeaders();
-    const res = await fetch(`http://localhost:5000/api/users/${userId}`, {
+    // 1. Deneme
+    let headers = await getHeaders();
+    let res = await fetch(`http://localhost:5000/api/users/${userId}`, {
       method: 'PUT',
       headers,
       credentials: 'include',
-      body: JSON.stringify(userData)
+      body: JSON.stringify(userData),
     });
+
+    // 401 ise CSRF token zaman aşımı olabilir: yenile ve tekrar dene
+    if (res.status === 401) {
+      await getCsrfToken(true);
+      headers = await getHeaders();
+      res = await fetch(`http://localhost:5000/api/users/${userId}`, {
+        method: 'PUT',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify(userData),
+      });
+    }
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -284,8 +325,9 @@ export async function editUser(userId: string, userData: { username?: string; em
 
     const data = await res.json();
     return data.user;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Edit user error:', error);
-    throw error;
+    // Dışarıya anlaşılır bir mesajla fırlat
+    throw new Error(error.message || 'Kullanıcı güncellenirken bir hata oluştu.');
   }
 }

@@ -72,11 +72,19 @@ def login():
 @auth_bp.route('/me', methods=['GET'])
 @jwt_required()
 def get_user():
+    """
+    Eğer geçerli bir token varsa user döner,
+    yoksa 401 değil 200 + null user döner.
+    """
     current_user_id = get_jwt_identity()
+    if not current_user_id:
+        return jsonify({'user': None}), 200
+
     user = User.find_by_id(ObjectId(current_user_id))
     if not user:
-        return jsonify({'error': 'User not found'}), 404
-    return jsonify({'user': user.to_dict()})
+        return jsonify({'user': None}), 200
+
+    return jsonify({'user': user.to_dict()}), 200
 
 @auth_bp.route('/logout', methods=['POST', 'OPTIONS'])
 def logout():

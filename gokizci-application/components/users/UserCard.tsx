@@ -9,7 +9,7 @@ interface Props {
     role: string;
 }
 
-export function UserCard({ id, name, role, email }: Props) {
+export function UserCard({ id, name, role, email, refreshUsers }: Props & { refreshUsers: () => void }) {
     const [isPopupVisible, setPopupVisible] = useState(false);
 
     const handlePopupToggle = () => {
@@ -31,7 +31,14 @@ export function UserCard({ id, name, role, email }: Props) {
                     </span>
                 </div>
                 {isPopupVisible && (
-                    <PopUpEditUser userId={id} userName={name} userRole={role} onClose={handlePopupToggle} />
+                    <PopUpEditUser
+                        userId={id}
+                        userName={name}
+                        userRole={role}
+                        userEmail={email}
+                        onClose={handlePopupToggle}
+                        refreshUsers={refreshUsers}
+                    />
                 )}
             </div>
 

@@ -60,7 +60,7 @@ export function UserPanel() {
 
                 <div className="grid grid-rows-2 grid-cols-3 min-w-[1000px] h-full gap-8 mt-4 mx-[5%]">
                     {users.map((user, index) => (
-                        <UserCard key={index} id={user.id} role={user.role} email={user.email} name={user.username} />
+                        <UserCard key={index} id={user.id} role={user.role} email={user.email} name={user.username} refreshUsers={getUsers} />
                     ))}
                 </div>
 

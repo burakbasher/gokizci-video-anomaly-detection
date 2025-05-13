@@ -1,5 +1,4 @@
 "use client";
-
 import { createContext, useContext, useState, useEffect } from "react";
 import { fetchUser } from "@/app/lib/api";
 import type { User } from "@/app/lib/definitions";
@@ -11,9 +10,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType>({
-  user: null,
-  setUser: () => {},
-  refreshUser: async () => {},
+  user: null, setUser: () => {}, refreshUser: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -25,7 +22,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    refreshUser();
+    // 🎯 Sadece localStorage'da login flag varsa me'yi çağır
+    if (typeof window !== "undefined" && localStorage.getItem("isLoggedIn") === "true") {
+      refreshUser().catch(console.error);
+    }
   }, []);
 
   return (

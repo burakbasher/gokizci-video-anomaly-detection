@@ -30,13 +30,13 @@ export default function Page() {
 
   return <>
     <div className='flex min-h-screen place-content-center'>
-      <div className='grid content-center text-center gap-4 mb-20 '>
+      <div className='grid content-center text-center gap-4 mb-40 '>
         <p className="text-6xl font-bold">
           <span className="text-primary">Gök</span>
           <span className="text-primary-light">izci</span>
         </p>
-        
-        <p className="text-primary-light text-center  grid content-center text-2xl font-normal">
+
+        <p className="text-primary text-center  grid content-center text-2xl font-normal">
           <span>Hareketli Video Görüntülerinde Anomali Tespiti</span>
           <span>Anomali Tespiti</span>
         </p>

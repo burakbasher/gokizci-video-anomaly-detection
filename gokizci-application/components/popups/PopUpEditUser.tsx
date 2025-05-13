@@ -1,28 +1,5 @@
 "use client";
 
-/**
- * PopUpRegister Component:
- * - Renders a registration form with various inputs, including password with toggle functionality.
- * - Utilizes dynamic error handling and displays appropriate messages for missing or invalid fields.
- * - Submits form data to an API endpoint for registering a new user and handles both success and error cases.
- * - Fields include password validation requiring at least 8 characters.
- * - Incorporates useState for managing form values and error states.
- * - Fetches API responses for form submission and provides feedback to users.
- *
- * PopUpChangePassword Component:
- * - Handles the password change form where users can update their password.
- * - Includes password toggle functionality and validation for matching and length.
- * - Submits form data to an API endpoint to change the user's password, handles success and error messages accordingly.
- * - Includes basic modal structure with close button functionality.
- *
- * PopUpEditUser Component:
- * - Renders a form allowing admins to edit user information such as username, role, and optionally the password.
- * - Detects if the password field is edited and handles changes accordingly, providing validation for password length.
- * - Submits form data to an API endpoint for updating user information and displays relevant success or error messages.
- * - Utilizes dynamic form generation for input and select fields with error handling based on userFormControls.
- * - Includes basic modal structure with a close button.
- */
-
 
 import React, { useState, ChangeEvent } from 'react';
 import { BlackButton } from '../buttons/BlackButton';
@@ -33,24 +10,30 @@ export function PopUpEditUser({
     onClose,
     userId,
     userName,
+    userEmail,
     userRole,
+    refreshUsers,
 }: {
     onClose: () => void;
     userId: string;
     userName: string;
+    userEmail: string;
     userRole: string;
+    refreshUsers: () => void;
 }) {
     const [showPassword, setShowPassword] = useState(false);
     const [errors, setErrors] = useState<Errors>(initialErrors);
     const [formValues, setFormValues] = useState({
         userName: userName,
         role: userRole,
+        email: userEmail,
         password: '••••••••',
     });
     const [isPasswordChanged, setIsPasswordChanged] = useState(false);
 
     const handleSubmit = async (e: any) => {
         e.preventDefault();
+
 
         let hasError = false;
         const tempErrors: Errors = { ...initialErrors };
@@ -76,13 +59,17 @@ export function PopUpEditUser({
         try {
             await editUser(userId, {
                 username: formValues.userName,
+                email: formValues.email,
                 password: isPasswordChanged ? formValues.password : undefined,
                 role: formValues.role
             });
+            await refreshUsers();
+            onClose();
             tempErrors.success = 'Kullanıcı başarıyla kaydedildi.';
             setErrors(tempErrors);
         } catch (error) {
             tempErrors.userName = 'Hata, lütfen tekrar deneyin.';
+            tempErrors.email = 'Hata, lütfen tekrar deneyin.';
             setErrors(tempErrors);
             console.error(error);
         }
