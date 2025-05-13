@@ -197,7 +197,7 @@ export async function changePassword(oldPassword: string, newPassword: string) {
   try {
     const headers = await getHeaders();
 
-    const res = await fetch('http://localhost:5000/api/changePassword', {
+    const res = await fetch('http://localhost:5000/api/auth/changePassword', {
       method: 'POST',
       headers,
       credentials: 'include',
