@@ -4,17 +4,17 @@ import { fetchUser } from "@/app/lib/api";
 import type { User } from "@/app/lib/definitions";
 
 interface AuthContextType {
-  user: User | null;
-  setUser: React.Dispatch<React.SetStateAction<User | null>>;
+  user: User | null | undefined; 
+  setUser: React.Dispatch<React.SetStateAction<User | null | undefined>>;
   refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
-  user: null, setUser: () => {}, refreshUser: async () => {},
+  user: undefined, setUser: () => {}, refreshUser: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User|null|undefined>(undefined);
 
   const refreshUser = async () => {
     const currentUser = await fetchUser();

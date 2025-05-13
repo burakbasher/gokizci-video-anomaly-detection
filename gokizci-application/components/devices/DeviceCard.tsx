@@ -14,14 +14,18 @@ interface Props {
 
 export const DeviceCard = ({ device, onStatusChange }: Props) => {
   const router = useRouter();
+  const { user } = useAuth();
+
+  if (user === undefined) {
+    return null;
+  }
+
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasAnomaly, setHasAnomaly] = useState(false);
   const [showSourceId, setShowSourceId] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedSourceId, setCopiedSourceId] = useState(false);
-
   const [deviceStatus, setDeviceStatus] = useState<"online" | "offline" | "error">(device.status);
-  const { user } = useAuth();
 
   useEffect(() => {
     return () => {
@@ -56,9 +60,11 @@ export const DeviceCard = ({ device, onStatusChange }: Props) => {
     setTimeout(() => setCopiedSourceId(false), 1000);
   };
 
+  const isAdmin = user?.role === "admin";
+
   return (
     <div>
-      <div className="flex flex-col bg-background-surface rounded-lg border border-background-alt shadow-sm hover:shadow-md transition-all w-full max-w-[320px]">
+      <div className="flex flex-col bg-background-surface rounded-lg border border-background-alt shadow-sm hover:shadow-md transition-all w-full w-[320px]">
         <div className="p-4">
           <div className="flex justify-between items-center">
             <div className="group inline-flex items-center rounded-full px-2 py-1 transition hover:bg-background-alt cursor-pointer hover:shadow-sm">
@@ -109,7 +115,7 @@ export const DeviceCard = ({ device, onStatusChange }: Props) => {
 
           <p className="text-primary-light text-sm mt-2">Cihaz türü {device.type}</p>
 
-          {user?.role === "admin" && (
+          {isAdmin && (
             <div className="border border-red-300 bg-red-50 text-red-800 rounded-md p-3 mt-4 relative">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1 font-semibold">

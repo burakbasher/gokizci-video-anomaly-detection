@@ -7,9 +7,15 @@ import { Loading } from '../loading';
 import { PopUpNewDevice } from '../popups/PopUpNewDevice';
 import { Device } from '@/app/lib/definitions';
 import { fetchDevicesPaginated, deleteDevice } from '@/app/lib/api';
+import { useAuth } from '../contexts/AuthContext';
 
 
 export const DevicePanel = () => {
+  const { user } = useAuth();
+  if (user === undefined) {
+    return null;
+  }
+
   const [devices, setDevices] = useState<Device[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalDevices, setTotalDevices] = useState(0);
@@ -69,6 +75,9 @@ export const DevicePanel = () => {
     }
   };
 
+  const isAdmin = user?.role === "admin";
+
+
   return (
     <div className='relative flex p-6 place-content-center'>
       <div className='grid min-w-[1200px] w-[1200px] p-10 rounded-md'>
@@ -85,6 +94,7 @@ export const DevicePanel = () => {
             </div>
 
             {/* SAĞA HİZALANMIŞ BUTON */}
+            {isAdmin && (
             <button
               onClick={handleAddDevice}
               className="ml-auto flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
@@ -92,8 +102,9 @@ export const DevicePanel = () => {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 5v14M5 12h14" />
               </svg>
-              <span className="ml-2">Yeni Cihaz Ekle</span>
-            </button>
+                <span className="ml-2">Yeni Cihaz Ekle</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -133,12 +144,15 @@ export const DevicePanel = () => {
             </button>
           </div>
         </div>
-
-        {showNewDevicePopup && (
-          <PopUpNewDevice
-            onClose={() => setShowNewDevicePopup(false)}
-            onSubmit={handleNewDeviceSubmit}
-          />
+        {isAdmin && (
+          <>
+            {showNewDevicePopup && (
+              <PopUpNewDevice
+                onClose={() => setShowNewDevicePopup(false)}
+                onSubmit={handleNewDeviceSubmit}
+              />
+            )}
+          </>
         )}
       </div>
     </div>
