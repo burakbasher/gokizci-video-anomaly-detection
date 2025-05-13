@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Blueprint, request, jsonify, make_response
 from flask_jwt_extended import create_access_token, get_csrf_token, jwt_required, get_jwt_identity
 from bson import ObjectId
@@ -10,18 +11,27 @@ def register():
     if request.method == 'OPTIONS':
         return '', 200
 
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'Invalid JSON payload'}), 400
+    try:    
+        data = request.get_json() or {}
+        # Zorunlu alanlar
+        for field in ('username', 'email', 'password'):
+            if not data.get(field):
+                return jsonify({'error': f'Missing field: {field}'}), 400
 
+        # Aynı email yoksa devam
         if User.find_by_email(data['email']):
             return jsonify({'error': 'Email already registered'}), 400
+
+        # Yeni alanlar default False
+        sms_notif = bool(data.get('sms_notification', False))
+        email_notif = bool(data.get('email_notification', False))
 
         user = User(
             username=data['username'],
             email=data['email'],
-            password=data['password']
+            password=data['password'],
+            sms_notification=sms_notif,
+            email_notification=email_notif
         )
         user.save()
 
@@ -30,9 +40,11 @@ def register():
             'message': 'User registered successfully',
             'user': user.to_dict()
         }))
-        response.set_cookie('access_token', access_token,
-                            httponly=True, secure=False, samesite='Lax',
-                            max_age=86400, path='/')
+        response.set_cookie(
+            'access_token', access_token,
+            httponly=True, secure=False, samesite='Lax',
+            max_age=86400, path='/'
+        )
         return response
 
     except Exception as e:
@@ -72,19 +84,15 @@ def login():
 @auth_bp.route('/me', methods=['GET'])
 @jwt_required()
 def get_user():
-    """
-    Eğer geçerli bir token varsa user döner,
-    yoksa 401 değil 200 + null user döner.
-    """
-    current_user_id = get_jwt_identity()
-    if not current_user_id:
+    current = get_jwt_identity()
+    if not current:
         return jsonify({'user': None}), 200
 
-    user = User.find_by_id(ObjectId(current_user_id))
+    user = User.find_by_id(ObjectId(current))
     if not user:
         return jsonify({'user': None}), 200
 
-    return jsonify({'user': user.to_dict()}), 200
+    return jsonify({'user': user.to_dict()}),200
 
 @auth_bp.route('/logout', methods=['POST', 'OPTIONS'])
 def logout():
@@ -117,6 +125,7 @@ def change_password():
             return jsonify({'error': 'Current password is incorrect'}), 400
 
         user.password = new_password
+        user.last_password_change = datetime.now()
         user.save()
 
         return jsonify({'message': 'Password changed successfully'}), 200

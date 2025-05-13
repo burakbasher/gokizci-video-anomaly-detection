@@ -331,3 +331,42 @@ export async function editUser(
     throw new Error(error.message || 'Kullanıcı güncellenirken bir hata oluştu.');
   }
 }
+
+export async function editSelf(
+  userData: { username?: string; email?: string; password?: string; sms_notification?: boolean; email_notification?: boolean }
+) {
+  try {
+    // 1. Deneme
+    let headers = await getHeaders();
+    let res = await fetch(`http://localhost:5000/api/users/me`, {
+      method: 'PUT',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify(userData),
+    });
+
+    // 401 ise CSRF token zaman aşımı olabilir: yenile ve tekrar dene
+    if (res.status === 401) {
+      await getCsrfToken(true);
+      headers = await getHeaders();
+      res = await fetch(`http://localhost:5000/api/users/me`, {
+        method: 'PUT',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify(userData),
+      });
+    }
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Kullanıcı güncellenirken bir hata oluştu.');
+    }
+
+    const data = await res.json();
+    return data.user;
+  } catch (error: any) {
+    console.error('Edit user error:', error);
+    // Dışarıya anlaşılır bir mesajla fırlat
+    throw new Error(error.message || 'Kullanıcı güncellenirken bir hata oluştu.');
+  }
+}

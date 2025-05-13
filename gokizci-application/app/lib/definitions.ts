@@ -55,7 +55,6 @@ export const passwordChangeFormControls = [
     },
 ];
 
-// Tip Tanımları
 export interface Errors {
     userName: string;
     email: string;
@@ -68,10 +67,16 @@ export interface User {
     id: string;
     username: string;
     email: string;
-    role: string;
-    is_active: boolean;
-    created_at: string;
-}
+    role: "admin" | "user";
+    sms_notification: boolean;
+    email_notification: boolean;
+    last_password_change: string;  
+    last_username_change: string;   
+    last_email_change: string;      
+    profile_completion: number;    
+    created_at: string;             
+  }
+  
 
 // Başlangıç State Değerleri
 export const initialErrors: Errors = {
@@ -86,7 +91,7 @@ export const initialFormValues = {
     userName: '',
     email: '',
     password: '',
-    role: 'User', // Varsayılan rol
+    role: 'User',
 };
 
 export const initialPasswordChangeForm = {
@@ -121,51 +126,4 @@ export interface Device {
     stream_url?: string;
     created_at: string;
     updated_at: string;
-}
-
-
-
-export function getAlertClasses(alert: number) {
-    let alertColorClass = "";
-    let alertBgClass = "";
-    let alertText = "";
-    let alertRadio = "";
-    let alertSlider = "";
-    let alertHoverBg = "";
-
-    switch (alert) {
-        case 1:
-            alertColorClass = "text-alert-red stroke-alert-red";
-            alertBgClass = "bg-alert-red border-alert-red";
-            alertRadio = "peer-checked:bg-alert-red border-alert-red";
-            alertSlider = "accent-alert-red ring-alert-red";
-            alertText = "Sertifikasız Cihaz";
-            alertHoverBg = "bg-alert-red hover:bg-alert-red-hover"
-            break;
-        case 2:
-            alertColorClass = "text-alert-green stroke-alert-green";
-            alertBgClass = "bg-alert-green border-alert-green";
-            alertRadio = "peer-checked:bg-alert-green border-alert-green";
-            alertSlider = "accent-alert-green ring-alert-green";
-            alertText = "Onaylı Cihaz";
-            alertHoverBg = "bg-alert-green hover:bg-alert-green-hover"
-            break;
-        case 3:
-            alertColorClass = "text-alert-yellow stroke-alert-yellow";
-            alertBgClass = "bg-alert-yellow border-alert-yellow";
-            alertRadio = "peer-checked:bg-alert-yellow border-alert-yellow";
-            alertSlider = "accent-alert-yellow ring-alert-yellow";
-            alertText = "Nesne Tespit Problemi";
-            alertHoverBg = "bg-alert-yellow hover:bg-alert-yellow-hover"
-            break;
-        default:
-            alertColorClass = "text-alert-neutral stroke-alert-neutral";
-            alertBgClass = "bg-alert-dark border-alert-dark";
-            alertRadio = "peer-checked:bg-alert-dark border-alert-dark";
-            alertSlider = "accent-alert-dark ring-alert-dark";
-            alertHoverBg = "bg-alert-dark hover:bg-black"
-            alertText = " ";
-    }
-
-    return { alertColorClass, alertBgClass, alertText, alertRadio, alertSlider, alertHoverBg };
 }

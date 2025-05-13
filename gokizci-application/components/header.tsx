@@ -37,7 +37,7 @@ const Header: React.FC = () => {
                         {/* Navigation */}
                         <nav className="hidden md:flex items-center text-sm text-primary-light">
                             <Link
-                                href="#"
+                                href="/user"
                                 className="hover:text-primary-dark font-medium"
                             >
                                 Anasayfa

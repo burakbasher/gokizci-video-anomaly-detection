@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/components/contexts/AuthContext";
 import { Shield, Bell, Calendar, User, Mail, Lock, Edit2 } from "lucide-react";
-import { editUser } from "@/app/lib/api";
+import { editSelf } from "@/app/lib/api";
 import { PopUpChangePassword } from "../popups/PopUpChangePassword";
 
 export const ProfilePanel = () => {
@@ -17,13 +17,18 @@ export const ProfilePanel = () => {
     const [msg, setMsg] = useState<string | null>(null);
     const [isPopupVisible, setPopupVisible] = useState(false);
     // Örnek: Bildirim tercihleri state
-    const [emailNotif, setEmailNotif] = useState(true);
+    const [emailNotif, setEmailNotif] = useState(false);
     const [smsNotif, setSmsNotif] = useState(false);
+    const [profileCompletion, setProfileCompletion] = useState(0);
 
+    
     useEffect(() => {
         if (!user) return;
         setUsername(user.username);
         setEmail(user.email);
+        setProfileCompletion(user.profile_completion);
+        setEmailNotif(user.email_notification);
+        setSmsNotif(user.sms_notification);
     }, [user]);
 
     const handleSave = async (e: React.FormEvent) => {
@@ -31,7 +36,7 @@ export const ProfilePanel = () => {
         setSaving(true);
         setMsg(null);
         try {
-            await editUser(user?.id || "", { username, email });
+            await editSelf({ username, email });
             await refreshUser();
             setMsg("Bilgiler kaydedildi.");
             setIsEditingInfo(false);
@@ -46,13 +51,20 @@ export const ProfilePanel = () => {
         setPopupVisible(!isPopupVisible);
     };
 
-
-    // auth hâlâ yükleniyorsa ya da kullanıcı yoksa render etme
     if (user === undefined || user === null) return null;
 
-    // Örnek: Profil tamamlama oranı
-    const profileCompletion = 60;
+    
+    const handleEmailNotif = async () => {
+        const newState = !emailNotif;
+        setEmailNotif(newState);
+        await editSelf({ email_notification: newState });
+    };
 
+    const handleSmsNotif = async () => {
+        const newState = !smsNotif;
+        setSmsNotif(newState);
+        await editSelf({ sms_notification: newState });
+    };
 
     return (
         <div className="flex justify-center min-h-screen p-8">
@@ -87,7 +99,7 @@ export const ProfilePanel = () => {
                     <p className="text-secondary text-xs mt-1">Profiliniz %{profileCompletion} tamamlandı</p>
                 </section>
 
-                {/* --- Bilgi & Ayarlar Grid’i --- */}
+                {/* --- Bilgi & Ayarlar Grid'i --- */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <section className="col-span-2">
                         {/* Düzenlenebilir Kişisel Bilgiler */}
@@ -142,7 +154,7 @@ export const ProfilePanel = () => {
                                         />
                                     </div>
 
-                                    {/* Kaydet Button’u */}
+                                    {/* Kaydet Button'u */}
 
                                     <div className="flex items-center gap-3">
                                         <button
@@ -198,7 +210,7 @@ export const ProfilePanel = () => {
                                         </label>
                                     </div>
 
-                                    {/* Kaydet Button’u */}
+                                    {/* Kaydet Button'u */}
 
                                     <div className="md:col-span-2 flex items-center">
                                         <button
@@ -255,7 +267,7 @@ export const ProfilePanel = () => {
                                     <input
                                         type="checkbox"
                                         checked={emailNotif}
-                                        onChange={() => setEmailNotif((v) => !v)}
+                                        onChange={handleEmailNotif}
                                         className="sr-only peer"
                                     />
                                     <div className="w-10 h-4 bg-background-alt rounded-full peer-checked:bg-primary transition-colors" />
@@ -268,7 +280,7 @@ export const ProfilePanel = () => {
                                     <input
                                         type="checkbox"
                                         checked={smsNotif}
-                                        onChange={() => setSmsNotif((v) => !v)}
+                                        onChange={handleSmsNotif}
                                         className="sr-only peer"
                                     />
                                     <div className="w-10 h-4 bg-background-alt rounded-full peer-checked:bg-primary transition-colors" />
