@@ -127,3 +127,34 @@ export interface Device {
     created_at: string;
     updated_at: string;
 }
+
+export interface TimelineMarker {
+  time: number; // seconds
+  label?: string;
+}
+
+export interface TimelineThumbnail {
+  time: number; // seconds
+  src: string;
+}
+
+export interface Bookmark {
+  time: number;
+  label: string;
+}
+
+export interface MonitoringPanelProps {
+  devices: string[];
+  selectedDevice: string;
+  onDeviceSelect: (device: string) => void;
+  anomalyRateEnabled: boolean;
+  onToggleAnomalyRate: (enabled: boolean) => void;
+  videoSourceId: string;
+  videoDuration: number;
+  currentTime: number;
+  onSeek: (time: number) => void;
+  timelineMarkers: TimelineMarker[];
+  timelineThumbnails: TimelineThumbnail[];
+  bookmarks: Bookmark[];
+  onBookmarkClick: (time: number) => void;
+}

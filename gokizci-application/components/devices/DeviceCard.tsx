@@ -64,7 +64,7 @@ export const DeviceCard = ({ device, onStatusChange }: Props) => {
 
   return (
     <div>
-      <div className="flex flex-col bg-background-surface rounded-lg border border-background-alt shadow-sm hover:shadow-md transition-all w-full w-[320px]">
+      <div className="flex flex-col bg-background-surface rounded-lg border border-background-alt shadow-sm hover:shadow-md transition-all w-[320px]">
         <div className="p-4">
           <div className="flex justify-between items-center">
             <div className="group inline-flex items-center rounded-full px-2 py-1 transition hover:bg-background-alt cursor-pointer hover:shadow-sm">
