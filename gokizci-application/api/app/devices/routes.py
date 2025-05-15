@@ -1,3 +1,5 @@
+"\api\app\devices\routes.py"
+
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from datetime import datetime, timedelta

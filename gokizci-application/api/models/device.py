@@ -1,3 +1,5 @@
+"\api\models\device.py"
+
 from mongoengine import Document, StringField, DateTimeField, BooleanField, IntField
 from datetime import datetime
 
