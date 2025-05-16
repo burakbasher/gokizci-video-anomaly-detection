@@ -1,4 +1,4 @@
-"\api\app\client\video_stream_client.py"
+"""api/app/client/video_stream_client.py"""
 
 import os
 import argparse

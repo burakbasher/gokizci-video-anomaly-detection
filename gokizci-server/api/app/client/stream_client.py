@@ -1,4 +1,4 @@
-"\api\app\client\stream_client.py"
+"""api/app/client/stream_client.py"""
 
 import cv2
 import socketio

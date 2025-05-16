@@ -1,4 +1,4 @@
-"\api\index.py"
+"""api/index.py"""
 
 from app import create_app, socketio
 

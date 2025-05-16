@@ -1,4 +1,4 @@
-"\api\models\video_segment.py"
+"""api/models/video_segment.py"""
 
 from mongoengine import Document, StringField, DateTimeField, BooleanField, BinaryField, FloatField
 from datetime import datetime
