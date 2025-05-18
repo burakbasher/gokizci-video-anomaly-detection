@@ -8,8 +8,7 @@ class VideoSegment(Document):
     frame_data = BinaryField(required=True)  # Base64 encoded frame
     timestamp = DateTimeField(default=datetime.utcnow)
     anomaly_detected = BooleanField(default=False)
-    anomaly_type = StringField()  # Optional: specific type of anomaly detected
-    confidence = FloatField()  # Optional: confidence score of anomaly detection
+    confidence = FloatField() 
 
     def to_dict(self):
         return {
@@ -17,7 +16,6 @@ class VideoSegment(Document):
             'source_id': self.source_id,
             'timestamp': self.timestamp.isoformat(),
             'anomaly_detected': self.anomaly_detected,
-            'anomaly_type': self.anomaly_type,
             'confidence': self.confidence
         }
 

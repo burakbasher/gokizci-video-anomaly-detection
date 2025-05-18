@@ -11,12 +11,14 @@ export const useVideoSocket = ({ sourceId, onAnomalyDetected, onStatusChange }: 
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<"online" | "offline" | "error">("offline");
+  const [frame, setFrame] = useState<string|null>(null);      // ← yenisi
   const socketRef = useRef<Socket | null>(null);
 
   const connect = useCallback(() => {
     if (!socketRef.current) {
-      socketRef.current = io("http://localhost:5000", {
+      socketRef.current = io("http://127.0.0.1:5000", {
         transports: ["websocket"],
+        withCredentials: true,
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,

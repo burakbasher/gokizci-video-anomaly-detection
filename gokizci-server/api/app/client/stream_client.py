@@ -15,7 +15,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class VideoStreamClient:
-    def __init__(self, source_id, server_url='http://localhost:5000'):
+    def __init__(self, source_id, server_url='http://127.0.0.1:5000'):
         self.source_id = source_id
         self.server_url = server_url
         self.sio = socketio.Client()
@@ -66,6 +66,7 @@ class VideoStreamClient:
                 _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
                 frame_base64 = base64.b64encode(buffer).decode('utf-8')
 
+                logger.info(f"Emitting frame for {self.source_id}, size={len(frame_base64)} bytes")
                 self.sio.emit('video_frame', {
                     'source_id': self.source_id,
                     'frame': frame_base64

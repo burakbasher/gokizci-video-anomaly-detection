@@ -11,11 +11,6 @@ import { useAuth } from '../contexts/AuthContext';
 
 
 export const DevicePanel = () => {
-  const { user } = useAuth();
-  if (user === undefined) {
-    return null;
-  }
-
   const [devices, setDevices] = useState<Device[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalDevices, setTotalDevices] = useState(0);
@@ -23,8 +18,10 @@ export const DevicePanel = () => {
   const [showNewDevicePopup, setShowNewDevicePopup] = useState(false);
   const devicePerPage = 2;
   const { isConnected, socket } = useWebSocket();
+  const { user } = useAuth();
 
-  const getDevices = async (page = 1) => {
+
+  async function getDevices(page = 1) {
     try {
       setIsLoading(true);
       const { devices, total } = await fetchDevicesPaginated(page, devicePerPage);
@@ -41,6 +38,11 @@ export const DevicePanel = () => {
   useEffect(() => {
     getDevices(currentPage);
   }, [currentPage]);
+
+  if (user === undefined) {
+    return null;
+  }
+
 
   const handleAddDevice = () => {
     setShowNewDevicePopup(true);

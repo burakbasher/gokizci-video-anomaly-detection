@@ -3,151 +3,147 @@
 from flask import request
 from flask_socketio import emit, join_room, leave_room
 from datetime import datetime
-from app import socketio
+from app.extensions import socketio
 from models.device import Device
-from app.utils.video_processing import process_video_frame
-import threading
-import queue
+from app.tasks import process_frame_task
 
-# Global state (geçici olarak burada tutulabilir, kalıcı depolama gerekirse ayrı çözümler gerekir)
-device_rooms = {}
-video_queues = {}
-processing_threads = {}
-FRAME_TIMEOUT_SECONDS = 10
+sid_to_source = {}
+
 
 @socketio.on('connect')
 def handle_connect():
-    print(f"Client connected: {request.sid}")
+    try:
+        print(f"Client connected: {request.sid}")
+        if request.sid:
+                # Eşleştirmeyi tut
+            sid_to_source[request.sid] = request.sid
+            join_room(request.sid)
+            emit('status', {'status': 'connected', 'room': request.sid}, room=request.sid)
+            print(f"[SERVER] ✅ connect from SID={request.sid}, namespace={request.namespace}")
+
+    except Exception as e:
+        print(f"Error in connect handler: {e}")
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    print(f"Client disconnected: {request.sid}")
-    for source_id, room_data in device_rooms.items():
-        if request.sid in room_data['clients']:
-            room_data['clients'].remove(request.sid)
+    try:
+        print(f"Client disconnected: {request.sid}")
+        source_id = sid_to_source.pop(request.sid, None)
+        if source_id:
+            # Odayı terket
             leave_room(source_id)
-            print(f'Client left room: {source_id}')
-            if not room_data['clients']:
-                if source_id in video_queues:
-                    video_queues[source_id].put(None)  # Kapatma sinyali
-                    del video_queues[source_id]
-                    del processing_threads[source_id]
-                del device_rooms[source_id]
-                update_device_status(source_id, 'offline')
+            # Cihazı offline olarak işaretle
+            device = Device.objects(source_id=source_id).first()
+            if device:
+                device.status = 'offline'
+                device.last_seen = datetime.utcnow()
+                device.save()
+                # İlgili odadaki (başka client’lar varsa) herkese bilgi yolla
+                emit('status', {'status': 'offline'}, room=source_id) 
+    except Exception as e:
+        print(f"Error in disconnect handler: {e}")
 
 @socketio.on('join')
 def handle_join(data):
-    source_id = data.get('source_id')
-    if source_id:
-        join_room(source_id)
-        print(f"Client {request.sid} joined room {source_id}")
-        emit('status', {'status': 'connected', 'room': source_id})
+    try:
+        source_id = data.get('source_id')
+        if source_id:
+            join_room(source_id)
+            print(f"Client {request.sid} joined room {source_id}")
+            emit('status', {'status': 'connected', 'room': source_id})
+    except Exception as e:
+        print(f"Error in join handler: {e}")
 
 @socketio.on('video_frame')
 def handle_video_frame(data):
+    """
+    Gelen her frame’i doğrudan Celery worker’a yolluyoruz.
+    Ana sunucu hiçbir CPU-yoğun iş yapmıyor, sadece delege ediyor.
+    """
     try:
         source_id = data.get('source_id')
         frame_data = data.get('frame')
         if not source_id or not frame_data:
             return
 
-        result = process_video_frame(source_id, frame_data)
-        if result:
-            emit('processed_frame', {
-                'source_id': source_id,
-                'frame': result['frame'],
-                'timestamp': result['timestamp']
-            }, room=source_id)
+        # Celery task’ini non-blocking şekilde kuyruğa ekle
+        process_frame_task.delay(source_id, frame_data)
+        print(f"[SERVER] enqueueing frame for {source_id}")
     except Exception as e:
-        print(f"Error in video_frame: {e}")
+        # Hata olursa yalnızca ilgili client’a bilgi gönderelim
+        emit('error', {'message': f'Video frame işleme hatası: {e}'}, room=request.sid)
+        print(f"Error in video_frame handler: {e}")
 
 @socketio.on('device_connect')
 def handle_device_connect(data):
-    source_id = data.get('source_id')
-    if not source_id:
-        print("No source_id in device_connect")
-        return
+    """
+    Cihazın çevrimiçi durumunu güncelliyoruz.
+    Artık senkron queue/worker kodu yok.
+    """
+    try:
+        source_id = data.get('source_id')
+        if not source_id:
+            emit('error', {'message': 'device_connect: source_id eksik'}, room=request.sid)
+            return
 
-    if source_id not in device_rooms:
-        device_rooms[source_id] = {
-            'clients': set(),
-            'status': 'offline',
-            'last_frame': datetime.utcnow()
-        }
+        join_room(source_id)
+        print(f"Device {source_id} connected to room")
 
-    join_room(source_id)
-    device_rooms[source_id]['clients'].add(request.sid)
-    print(f"Device {source_id} connected to room")
+        # Cihaz durumunu veritabanında işaretle
+        device = Device.objects(source_id=source_id).first()
+        if device:
+            device.status = 'online'
+            device.last_seen = datetime.utcnow()
+            device.save()
+            emit('status', {'status': 'online'}, room=source_id)
 
-    device = Device.objects(source_id=source_id).first()
-    if device:
-        update_device_status(source_id, 'online')
-        if source_id not in video_queues:
-            video_queues[source_id] = queue.Queue()
-            thread = threading.Thread(
-                target=video_processing_worker,
-                args=(source_id, video_queues[source_id])
-            )
-            thread.daemon = True
-            thread.start()
-            processing_threads[source_id] = thread
+    except Exception as e:
+        emit('error', {'message': f'device_connect hatası: {e}'}, room=request.sid)
+        print(f"Error in device_connect handler: {e}")
 
 @socketio.on('device_command')
 def handle_device_command(data):
-    device_id = data.get('device_id')
-    command = data.get('command')
-    params = data.get('params', {})
+    try:
+        device_id = data.get('device_id')
+        command = data.get('command')
+        params = data.get('params', {})
 
-    if not device_id or not command:
-        emit('error', {'message': 'Device ID and command are required'})
-        return
+        if not device_id or not command:
+            emit('error', {'message': 'Device ID ve command gerekli'}, room=request.sid)
+            return
 
-    room = f'device_{device_id}'
-    emit('execute_command', {
-        'command': command,
-        'params': params
-    }, room=room)
+        room = f"device_{device_id}"
+        emit('execute_command', {'command': command, 'params': params}, room=room)
+
+    except Exception as e:
+        emit('error', {'message': f'device_command hatası: {e}'}, room=request.sid)
+        print(f"Error in device_command handler: {e}")
 
 @socketio.on('device_data')
 def handle_device_data(data):
-    device_id = data.get('device_id')
-    data_type = data.get('type')
-    payload = data.get('payload')
+    try:
+        device_id = data.get('device_id')
+        data_type = data.get('type')
+        payload = data.get('payload')
 
-    if not device_id or not data_type:
-        emit('error', {'message': 'Device ID and data type are required'})
-        return
+        if not device_id or not data_type:
+            emit('error', {'message': 'Device ID ve data type gerekli'}, room=request.sid)
+            return
 
-    if data_type == 'status':
-        device = Device.objects(source_id=device_id).first()
-        if device:
-            device.status = payload.get('status', device.status)
-            device.save()
+        # Örnek: status güncellemesi
+        if data_type == 'status':
+            device = Device.objects(source_id=device_id).first()
+            if device:
+                device.status = payload.get('status', device.status)
+                device.save()
 
-    room = f'device_{device_id}'
-    emit('device_data_update', {
-        'device_id': device_id,
-        'type': data_type,
-        'payload': payload
-    }, room=room)
+        room = f"device_{device_id}"
+        emit('device_data_update', {
+            'device_id': device_id,
+            'type': data_type,
+            'payload': payload
+        }, room=room)
 
-# Yardımcı fonksiyonlar
-
-def update_device_status(source_id, status):
-    device = Device.objects(source_id=source_id).first()
-    if device:
-        device.status = status
-        device.save()
-
-def video_processing_worker(source_id, q):
-    while True:
-        frame_data = q.get()
-        if frame_data is None:
-            break
-        result = process_video_frame(source_id, frame_data)
-        if result:
-            socketio.emit('processed_frame', {
-                'source_id': source_id,
-                'frame': result['frame'],
-                'timestamp': result['timestamp']
-            }, room=source_id)
+    except Exception as e:
+        emit('error', {'message': f'device_data hatası: {e}'}, room=request.sid)
+        print(f"Error in device_data handler: {e}")

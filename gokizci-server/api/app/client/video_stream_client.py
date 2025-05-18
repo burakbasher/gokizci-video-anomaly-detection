@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def main():
     parser = argparse.ArgumentParser(description='Simulate a device source using test_video.mp4')
     parser.add_argument('--source-id', required=True, help='Unique source ID for the device')
-    parser.add_argument('--server', default='http://localhost:5000', help='Server URL')
+    parser.add_argument('--server', default='http://127.0.0.1:5000', help='Server URL')
 
     args = parser.parse_args()
 

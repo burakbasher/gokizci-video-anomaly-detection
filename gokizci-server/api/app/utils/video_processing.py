@@ -1,3 +1,5 @@
+# api/app/utils/video_processing.py
+
 import cv2
 import numpy as np
 import base64
@@ -28,7 +30,11 @@ def process_video_frame(source_id, frame_data):
 
         return {
             'frame': encoded_frame,
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.utcnow().isoformat(),
+            'anomaly_detected': False,
+            'source_id': source_id,
+            'confidence': 0.0
+
         }
 
     except Exception as e:

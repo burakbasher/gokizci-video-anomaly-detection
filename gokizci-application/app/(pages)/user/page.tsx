@@ -1,14 +1,14 @@
 
 
 import { DevicePanel } from '@/components/devices/DevicePanel';
-import { UserPanel } from '@/components/users/UserPanel';
+import { UserPanelController } from '@/components/users/UserPanelController';
 
 export default function Page() {
 
   return (
     <>
       <DevicePanel />
-      <UserPanel />
+      <UserPanelController />
     </>
   );
 }

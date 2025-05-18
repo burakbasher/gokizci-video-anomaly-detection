@@ -6,15 +6,8 @@ import { PopUpNewUser } from '../popups/PopUpNewUser';
 import { fetchUsers, addUser } from "@/app/lib/api";
 import { UserCard } from "./UserCard";
 import { UserPlus } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
 
 export function UserPanel() {
-    const { user } = useAuth();
-
-    if (!user || user.role !== "admin") {
-        return null;
-    }
-    
     const [isPopupVisible, setPopupVisible] = useState(false);
     const [users, setUsers] = useState<User[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
