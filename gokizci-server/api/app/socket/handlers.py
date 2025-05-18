@@ -5,7 +5,7 @@ from flask_socketio import emit, join_room, leave_room
 from datetime import datetime
 from app.extensions import socketio
 from models.device import Device
-from app.tasks import process_frame_task
+from app.extensions import frame_queue
 
 sid_to_source = {}
 
@@ -66,8 +66,8 @@ def handle_video_frame(data):
         if not source_id or not frame_data:
             return
 
-        # Celery task’ini non-blocking şekilde kuyruğa ekle
-        process_frame_task.delay(source_id, frame_data)
+        # Eventlet kuyruğuna ekle (aynı proses içinde)        
+        frame_queue.put((source_id, frame_data))
         print(f"[SERVER] enqueueing frame for {source_id}")
     except Exception as e:
         # Hata olursa yalnızca ilgili client’a bilgi gönderelim

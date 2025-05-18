@@ -6,7 +6,6 @@ from flask_jwt_extended import JWTManager
 from mongoengine import connect
 from app.extensions import socketio
 from app.settings import Config
-from app.celery import make_celery
 
 jwt = JWTManager()
 
