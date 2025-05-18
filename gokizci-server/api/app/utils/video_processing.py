@@ -12,24 +12,8 @@ def process_video_frame(source_id, frame_data):
     Base64 ile gelen video karesini optimize edip yeniden base64'e çevirir.
     """
     try:
-        # Base64'ten çöz
-        frame_bytes = base64.b64decode(frame_data)
-        nparr = np.frombuffer(frame_bytes, np.uint8)
-        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-        if frame is None:
-            print(f"[{source_id}] Frame decode error.")
-            return None
-
-        # Görüntü kalitesini ayarlayarak yeniden kodla
-        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), VIDEO_QUALITY]
-        _, buffer = cv2.imencode('.jpg', frame, encode_param)
-
-        # Base64 formatına geri çevir
-        encoded_frame = base64.b64encode(buffer).decode('utf-8')
-
         return {
-            'frame': encoded_frame,
+            'frame': frame_data,
             'timestamp': datetime.utcnow().isoformat(),
             'anomaly_detected': False,
             'source_id': source_id,
