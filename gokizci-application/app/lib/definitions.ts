@@ -157,4 +157,8 @@ export interface MonitoringPanelProps {
   timelineThumbnails: TimelineThumbnail[];
   bookmarks: Bookmark[];
   onBookmarkClick: (time: number) => void;
+  mode: "live" | "replay";
+  onModeChange: (mode: "live" | "replay") => void;
+  replayStartTime?: string;
+  fps?: number;
 }

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Device } from "@/app/lib/definitions";
-import { VideoStream } from "./VideoStream";
+import { VideoStream } from "../videoplayers/VideoStream";
 import { Circle, Clipboard, Lock, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/components/contexts/AuthContext";
 

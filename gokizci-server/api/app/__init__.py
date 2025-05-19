@@ -6,6 +6,7 @@ from flask_jwt_extended import JWTManager
 from mongoengine import connect
 from app.extensions import socketio
 from app.settings import Config
+from app.replay.routes import replay_bp
 
 jwt = JWTManager()
 
@@ -35,5 +36,5 @@ def create_app():
     flask_app.register_blueprint(auth_bp, url_prefix='/api/auth')
     flask_app.register_blueprint(device_bp, url_prefix='/api/devices')
     flask_app.register_blueprint(user_bp, url_prefix='/api/users')
-    
+    flask_app.register_blueprint(replay_bp, url_prefix='/api/replay')
     return flask_app

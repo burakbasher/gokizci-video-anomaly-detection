@@ -1,64 +1,125 @@
 import { Maximize, Play, PlayCircle } from "lucide-react";
-import { VideoStream } from "../devices/VideoStream";
+import { VideoStream } from "../videoplayers/VideoStream";
+import { ReplayPlayer } from "../videoplayers/ReplayPlayer";
 import { MonitoringSideBar } from "./MonitoringSideBar";
-import React from "react";
-import { MonitoringPanelProps } from "@/app/lib/definitions";
+import React, { useState, useEffect } from "react";
+import { Device } from '@/app/lib/definitions';
 
+// Mock data - ileride backend'den gelecek
+const MOCK_DATA = {
+    videoDuration: 3600, // demo: 1 saat = 3600s
+    timelineMarkers: [
+        { time: 10, label: "Anomaly 1" },
+        { time: 34, label: "Anomaly 2" },
+        { time: 60, label: "Anomaly 3" },
+    ],
+    timelineThumbnails: [
+        { time: 0, src: "https://placehold.co/120x80?text=0:00" },
+        { time: 20, src: "https://Fplacehold.co/120x80?text=0:20" },
+        { time: 40, src: "https://placehold.co/120x80?text=0:40" },
+        { time: 60, src: "https://placehold.co/120x80?text=1:00" },
+        { time: 80, src: "https://placehold.co/120x80?text=1:20" },
+    ],
+    bookmarks: [
+        { time: 10, label: "Anomaly 1" },
+        { time: 34, label: "Anomaly 2" },
+        { time: 60, label: "Anomaly 3" },
+    ],
+};
 
-export function MonitoringPanel({
-    devices,
-    selectedDevice,
-    onDeviceSelect,
-    anomalyRateEnabled,
-    onToggleAnomalyRate,
-    videoSourceId,
-    videoDuration,
-    currentTime,
-    onSeek,
-    timelineMarkers,
-    timelineThumbnails,
-    bookmarks,
-    onBookmarkClick,
-}: MonitoringPanelProps) {
+interface MonitoringPanelProps {
+    selectedDevice: string | null;
+    onDeviceSelect: (device: string) => void;
+    devices: Device[];
+    sourceId: string;
+}
+
+export function MonitoringPanel({ selectedDevice, onDeviceSelect, devices, sourceId }: MonitoringPanelProps) {
+    const [mode, setMode] = useState<"live" | "replay">("live");
+    const [currentTime, setCurrentTime] = useState(0);
+    const [replayStartTime, setReplayStartTime] = useState<string | undefined>(undefined);
+
+    // Replay moduna geçiş için yardımcı fonksiyon
+    const handleSeek = (time: number) => {
+        setCurrentTime(time);
+        const iso = new Date(Date.now() - (MOCK_DATA.videoDuration - time) * 1000).toISOString();
+        setReplayStartTime(iso);
+        setMode("replay");
+    };
+
+    // Live modunda zamanı güncelle
+    useEffect(() => {
+        if (mode === "live") {
+            const interval = setInterval(() => {
+                setCurrentTime(prev => (prev + 1) % MOCK_DATA.videoDuration);
+            }, 1000);
+            return () => clearInterval(interval);
+        }
+    }, [mode]);
+
     return (
         <div className="flex pb-5">
             {/* Sidebar */}
             <MonitoringSideBar
-                devices={devices}
                 selectedDevice={selectedDevice}
                 onDeviceSelect={onDeviceSelect}
-                anomalyRateEnabled={anomalyRateEnabled}
-                onToggleAnomalyRate={onToggleAnomalyRate}
+                anomalyRateEnabled={false}
+                onToggleAnomalyRate={() => { }}
             />
             {/* Main Content */}
             <div className="flex flex-col flex-1 pt-7 pb-7 pr-7">
                 <div className="flex flex-row gap-3">
                     {/* Video Player & Timeline */}
                     <div className="flex flex-col flex-1 gap-3">
+                        <div className="flex gap-2 mb-2">
+                            <button
+                                className={`px-3 py-1 rounded ${mode === "live" ? "bg-primary text-white" : "bg-gray-200"}`}
+                                onClick={() => setMode("live")}
+                            >
+                                Live
+                            </button>
+                            <button
+                                className={`px-3 py-1 rounded ${mode === "replay" ? "bg-primary text-white" : "bg-gray-200"}`}
+                                onClick={() => setMode("replay")}
+                                disabled={!replayStartTime}
+                            >
+                                Replay
+                            </button>
+                        </div>
                         <div className="bg-black rounded-lg shadow-sm overflow-hidden relative aspect-video flex items-center justify-center hover:shadow-md transition-all">
                             {/* Video Player */}
-                            <VideoStream sourceId={videoSourceId} />
+                            {mode === "live" ? (
+                                <VideoStream key="live-player" sourceId={sourceId} />
+                            ) : (
+                                <ReplayPlayer
+                                    key="replay-player"
+                                    sourceId={sourceId}
+                                    mode={mode}
+                                    startTime={replayStartTime}
+                                    fps={15}
+                                />
+                            )}
                             {/* Controls (placeholder) */}
                             <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-primary to-transparent flex items-center gap-2">
                                 <button className="w-10 h-10 rounded-full flex items-center justify-center text-white">
                                     <Play className="w-6 h-6 hover:h-7 hover:w-7 transition-all" />
                                 </button>
                                 <div className="flex-1 mx-2">
-                                    <div className="h-2 bg-background-surface/50 rounded-full relative cursor-pointer" onClick={() => onSeek(currentTime)}>
+                                    <div className="h-2 bg-background-surface/50 rounded-full relative cursor-pointer" onClick={() => handleSeek(currentTime)}>
                                         {/* Progress bar */}
-                                        <div className="h-2 bg-background-surface/90  rounded-full" style={{ width: `${(currentTime / videoDuration) * 100}%` }} />
+                                        <div className="h-2 bg-background-surface/90  rounded-full" style={{ width: `${(currentTime / MOCK_DATA.videoDuration) * 100}%` }} />
                                         {/* Markers */}
-                                        {timelineMarkers.map((marker, i) => (
+                                        {MOCK_DATA.timelineMarkers.map((marker, i) => (
                                             <div
                                                 key={i}
                                                 className="absolute top-0 h-2 w-1 bg-red-500"
-                                                style={{ left: `${(marker.time / videoDuration) * 100}%` }}
+                                                style={{ left: `${(marker.time / MOCK_DATA.videoDuration) * 100}%` }}
                                                 title={marker.label}
                                             />
                                         ))}
                                     </div>
                                 </div>
-                                <span className="text-background-surface/90 text-sm">{formatTime(currentTime)} / {formatTime(videoDuration)}</span>
+                                <span className="text-background-surface/90 text-sm">{formatTime(currentTime)} / {formatTime(MOCK_DATA.videoDuration)}</span>
                                 <button className="w-8 h-8 rounded-full text-white flex items-center justify-center">
                                     <Maximize className="w-5 h-5  hover:h-6 hover:w-6 transition-all" />
                                 </button>
@@ -66,11 +127,11 @@ export function MonitoringPanel({
                         </div>
                         {/* Timeline Thumbnails */}
                         <div className="flex flex-row items-center gap-2 bg-background-surface rounded-lg border border-background-alt shadow-sm hover:shadow-md  p-2 overflow-x-auto">
-                            {timelineThumbnails.map((thumb, i) => (
-                                <div key={i} className="relative flex flex-col items-center cursor-pointer" onClick={() => onSeek(thumb.time)}>
+                            {MOCK_DATA.timelineThumbnails.map((thumb, i) => (
+                                <div key={i} className="relative flex flex-col items-center cursor-pointer" onClick={() => handleSeek(thumb.time)}>
                                     <img src={thumb.src} alt="thumb" className="w-24 h-14 object-cover rounded border border-background-alt" />
                                     {/* Marker below thumbnail if exists */}
-                                    {timelineMarkers.some(m => Math.abs(m.time - thumb.time) < 1) && (
+                                    {MOCK_DATA.timelineMarkers.some(m => Math.abs(m.time - thumb.time) < 1) && (
                                         <div className="w-2 h-2 bg-red-500 rounded-full mt-1" />
                                     )}
                                     <span className="text-xs text- mt-1">{formatTime(thumb.time)}</span>
@@ -82,11 +143,11 @@ export function MonitoringPanel({
                     <div className="w-72 bg-background-surface rounded-lg border border-background-alt shadow-sm hover:shadow-md  p-4 flex flex-col gap-2">
                         <h2 className="text-lg font-bold text-primary mb-2">Yer İşaretleri</h2>
                         <ul className="flex flex-col gap-2">
-                            {bookmarks.map((bm, i) => (
+                            {MOCK_DATA.bookmarks.map((bm, i) => (
                                 <li key={i}>
                                     <button
                                         className="w-full flex flex-row gap-2 px-2 py-1 rounded-lg text-left bg-primary text-white hover:bg-primary-dark transition-colors"
-                                        onClick={() => onBookmarkClick(bm.time)}
+                                        onClick={() => handleSeek(bm.time)}
                                     >
                                         <div className="w-4 h-4" />
                                         {bm.label}

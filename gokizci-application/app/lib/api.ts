@@ -370,3 +370,39 @@ export async function editSelf(
     throw new Error(error.message || 'Kullanıcı güncellenirken bir hata oluştu.');
   }
 }
+
+
+/**
+ * Son 1 saatteki (veya verilen aralıktaki) segment meta-verilerini getirir.
+ * @param sourceId Cihazın source_id değeri
+ * @param start   ISO format start timestamp (opsiyonel)
+ * @param end     ISO format end   timestamp (opsiyonel)
+ */
+export async function fetchReplaySegments(
+  sourceId: string,
+  start?: string,
+  end?: string
+): Promise<
+  { timestamp: string; anomaly: boolean; confidence?: number }[]
+> {
+  const params = new URLSearchParams();
+  if (start) params.append("start", start);
+  if (end)   params.append("end",   end);
+
+  const res = await fetch(
+    `http://localhost:5000/api/replay/${sourceId}/segments?${params.toString()}`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Replay segments alınamadı");
+  }
+
+  const data = await res.json();
+  return data.segments;
+}
