@@ -40,7 +40,7 @@ def handle_disconnect():
                 device.status = 'offline'
                 device.last_seen = datetime.utcnow()
                 device.save()
-                # İlgili odadaki (başka client’lar varsa) herkese bilgi yolla
+                # İlgili odadaki (başka client'lar varsa) herkese bilgi yolla
                 emit('status', {'status': 'offline'}, room=source_id) 
     except Exception as e:
         print(f"Error in disconnect handler: {e}")
@@ -68,12 +68,12 @@ def handle_video_frame(data):
             emit('error', {'message': 'Missing source_id or frame data'}, room=request.sid)
             return
 
-        # Direkt bir worker’a delege et
+        # Direkt bir worker'a delege et
         # pool: eventlet.GreenPool(size=WORKER_COUNT)  
         pool.spawn_n(_process_frame_job, source_id, frame_data)
         logger.info(f"[SERVER] enqueueing frame for {source_id}")
     except Exception as e:
-        # Hata olursa yalnızca ilgili client’a bilgi gönderelim
+        # Hata olursa yalnızca ilgili client'a bilgi gönderelim
         emit('error', {'message': f'Video frame işleme hatası: {e}'}, room=request.sid)
         logger.error(f"Error in video_frame handler: {e}")
 

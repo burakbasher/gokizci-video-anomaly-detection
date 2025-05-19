@@ -47,7 +47,7 @@ class VideoStreamClient:
 
             self.fps = self.cap.get(cv2.CAP_PROP_FPS)
             if self.fps <= 0:
-                self.fps = 25  # Varsayılan FPS
+                self.fps = 50  # Varsayılan FPS
             self.frame_time = 1.0 / self.fps
             logger.info(f"Video FPS: {self.fps}")
 

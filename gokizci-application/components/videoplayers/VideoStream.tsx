@@ -21,16 +21,21 @@ export const VideoStream = ({
     onStatusChange,
   });
 
-  const frameBufferRef = useRef<string[]>([]);
+  // artık ImageBitmap tutacağız
+  const frameBufferRef = useRef<ImageBitmap[]>([]);
   const isPlayingRef = useRef(false);
   const rafRef = useRef<number>();
   const lastRenderRef = useRef<number>(0);
+  const frameTimestampsRef = useRef<number[]>([]);
 
-  const targetFPS = 30;
+  const targetFPS = 20;
   const frameInterval = 1000 / targetFPS;
-  const initialBufferSize = 5; // Kaç frame biriktirince başlasın
 
-  // Canvas boyutunu sadece bir kez ayarla
+  // eşiği ihtiyaçlarınıza göre ayarlayın
+  const minBufferSize = 80;   // önce 30 frame topla
+  const maxBufferSize = 300;  // 120 üzerini at
+
+  // canvas boyutu
   useEffect(() => {
     const c = canvasRef.current;
     if (c) {
@@ -39,20 +44,38 @@ export const VideoStream = ({
     }
   }, []);
 
-  // Socket’ten gelen frame’leri buffer’a at
+  // frame decode + buffer'a ekle
   useEffect(() => {
-    const handler = (data: any) => {
+    const handler = async (data: any) => {
       if (data.source_id !== sourceId) return;
-      frameBufferRef.current.push(data.frame);
 
-      // Buffer yeterince dolduysa oynatmayı başlat
-      if (
-        !isPlayingRef.current &&
-        frameBufferRef.current.length >= initialBufferSize
-      ) {
-        isPlayingRef.current = true;
-        lastRenderRef.current = performance.now();
-        rafRef.current = requestAnimationFrame(drawLoop);
+      try {
+        // base64 → blob → bitmap
+        const bin = atob(data.frame);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const blob = new Blob([bytes], { type: "image/jpeg" });
+        const bitmap = await createImageBitmap(blob);
+
+        // timestamp'i kaydet
+        frameTimestampsRef.current.push(data.timestamp);
+
+        // tampon limitini koru
+        frameBufferRef.current.push(bitmap);
+        if (frameBufferRef.current.length > maxBufferSize) {
+          const old = frameBufferRef.current.shift();
+          frameTimestampsRef.current.shift();
+          old?.close();
+        }
+
+        // eşiğe ulaşıldıysa oynatmayı başlat
+        if (!isPlayingRef.current && frameBufferRef.current.length >= minBufferSize) {
+          isPlayingRef.current = true;
+          lastRenderRef.current = performance.now();
+          rafRef.current = requestAnimationFrame(drawLoop);
+        }
+      } catch (e) {
+        console.error("Decoding error:", e);
       }
     };
 
@@ -62,48 +85,51 @@ export const VideoStream = ({
     };
   }, [socket, sourceId]);
 
-  // Sabit hızda frame tüketen döngü
+  // çizim döngüsü
   const drawLoop = (now: number) => {
+    if (!isPlayingRef.current) return;
+
     const elapsed = now - lastRenderRef.current;
     if (elapsed >= frameInterval) {
-      const nextFrame = frameBufferRef.current.shift();
-      if (nextFrame) {
-        drawFrame(nextFrame);
-        lastRenderRef.current = now;
+      // tampon kritik altına düşünce durakla
+      if (frameBufferRef.current.length < minBufferSize) {
+        isPlayingRef.current = false;
+        return;
+      }
+
+      // en eski frame'i al (FIFO)
+      const nextBitmap = frameBufferRef.current.shift();
+      const frameTimestamp = frameTimestampsRef.current.shift();
+
+      if (nextBitmap) {
+        const ctx = canvasRef.current?.getContext("2d");
+        if (ctx) {
+          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+          ctx.drawImage(nextBitmap, 0, 0);
+        }
+        nextBitmap.close();
+
+        // drift'i minimize et
+        lastRenderRef.current += frameInterval;
       } else {
-        // Buffer boşaldı, tekrar biriktirene kadar durakla
         isPlayingRef.current = false;
         return;
       }
     }
+
+    // performans takibi (isteğe bağlı)
+    // console.log("buffer:", frameBufferRef.current.length, "elapsed:", elapsed);
+
     rafRef.current = requestAnimationFrame(drawLoop);
   };
 
-  // Bitmap ile tek adımda çizim
-  const drawFrame = async (frameData: string) => {
-    try {
-      const bin = atob(frameData);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      const blob = new Blob([bytes], { type: "image/jpeg" });
-      const bitmap = await createImageBitmap(blob);
-
-      const ctx = canvasRef.current?.getContext("2d");
-      if (ctx) {
-        ctx.clearRect(0, 0, 640, 480);
-        ctx.drawImage(bitmap, 0, 0);
-      }
-      bitmap.close();
-    } catch (e) {
-      console.error("Draw error:", e);
-    }
-  };
-
-  // Unmount temizliği
+  // unmount temizliği
   useEffect(() => {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      frameBufferRef.current.forEach(b => b.close());
       frameBufferRef.current = [];
+      frameTimestampsRef.current = [];
     };
   }, []);
 
