@@ -59,7 +59,6 @@ def handle_join(data):
 @socketio.on('video_frame')
 def handle_video_frame(data):
     """
-    Gelen her frame’i doğrudan Celery worker’a yolluyoruz.
     Ana sunucu hiçbir CPU-yoğun iş yapmıyor, sadece delege ediyor.
     """
     try:
@@ -152,3 +151,5 @@ def handle_device_data(data):
     except Exception as e:
         emit('error', {'message': f'device_data hatası: {e}'}, room=request.sid)
         print(f"Error in device_data handler: {e}")
+
+

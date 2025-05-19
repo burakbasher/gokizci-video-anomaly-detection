@@ -24,7 +24,7 @@ def create_app():
     socketio.init_app(flask_app)
 
     import app.socket.handlers
-
+    import app.socket.replay_handlers
     # CORS
     CORS(flask_app)
 

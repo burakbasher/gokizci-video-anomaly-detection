@@ -9,7 +9,8 @@ VIDEO_QUALITY = 85  # JPEG kalite ayarı
 
 def process_video_frame(source_id, frame_data):
     """
-    Base64 ile gelen video karesini optimize edip yeniden base64'e çevirir.
+    # TODO: GPU ile çalışan AI modelini buraya entegre et
+    # frame decode → inference → base64 encode
     """
     try:
         return {
