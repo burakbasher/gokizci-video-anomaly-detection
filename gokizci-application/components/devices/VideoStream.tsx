@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useVideoSocket } from "../hooks/useVideoSocket";
 
 interface VideoStreamProps {
@@ -9,103 +9,103 @@ interface VideoStreamProps {
   onStatusChange?: (status: "online" | "offline" | "error") => void;
 }
 
-export const VideoStream = ({ sourceId, onAnomalyDetected, onStatusChange }: VideoStreamProps) => {
+export const VideoStream = ({
+  sourceId,
+  onAnomalyDetected,
+  onStatusChange,
+}: VideoStreamProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { isConnected, error, status, socket } = useVideoSocket({ sourceId, onAnomalyDetected, onStatusChange });
+  const { isConnected, error, status, socket } = useVideoSocket({
+    sourceId,
+    onAnomalyDetected,
+    onStatusChange,
+  });
 
-  const frameQueueRef = useRef<string[]>([]);
-  const isProcessingRef = useRef(false);
-  const animationFrameRef = useRef<number>();
-  const mountedRef = useRef(true);
-  const frameCountRef = useRef(0);
-  const lastFrameTimeRef = useRef<number>(0);
-  const lastDrawTimeRef = useRef<number>(0);
+  const frameBufferRef = useRef<string[]>([]);
+  const isPlayingRef = useRef(false);
+  const rafRef = useRef<number>();
+  const lastRenderRef = useRef<number>(0);
+
   const targetFPS = 30;
   const frameInterval = 1000 / targetFPS;
+  const initialBufferSize = 5; // Kaç frame biriktirince başlasın
 
-  const processNextFrame = async () => {
-    if (!mountedRef.current || !canvasRef.current || isProcessingRef.current || frameQueueRef.current.length === 0) return;
-
-    const now = Date.now();
-    const timeSinceLastDraw = now - lastDrawTimeRef.current;
-
-    if (timeSinceLastDraw < frameInterval) {
-      animationFrameRef.current = requestAnimationFrame(processNextFrame);
-      return;
+  // Canvas boyutunu sadece bir kez ayarla
+  useEffect(() => {
+    const c = canvasRef.current;
+    if (c) {
+      c.width = 640;
+      c.height = 480;
     }
+  }, []);
 
-    isProcessingRef.current = true;
+  // Socket’ten gelen frame’leri buffer’a at
+  useEffect(() => {
+    const handler = (data: any) => {
+      if (data.source_id !== sourceId) return;
+      frameBufferRef.current.push(data.frame);
+
+      // Buffer yeterince dolduysa oynatmayı başlat
+      if (
+        !isPlayingRef.current &&
+        frameBufferRef.current.length >= initialBufferSize
+      ) {
+        isPlayingRef.current = true;
+        lastRenderRef.current = performance.now();
+        rafRef.current = requestAnimationFrame(drawLoop);
+      }
+    };
+
+    socket?.on("processed_frame", handler);
+    return () => {
+      socket?.off("processed_frame", handler);
+    };
+  }, [socket, sourceId]);
+
+  // Sabit hızda frame tüketen döngü
+  const drawLoop = (now: number) => {
+    const elapsed = now - lastRenderRef.current;
+    if (elapsed >= frameInterval) {
+      const nextFrame = frameBufferRef.current.shift();
+      if (nextFrame) {
+        drawFrame(nextFrame);
+        lastRenderRef.current = now;
+      } else {
+        // Buffer boşaldı, tekrar biriktirene kadar durakla
+        isPlayingRef.current = false;
+        return;
+      }
+    }
+    rafRef.current = requestAnimationFrame(drawLoop);
+  };
+
+  // Bitmap ile tek adımda çizim
+  const drawFrame = async (frameData: string) => {
     try {
-      const frameData = frameQueueRef.current.shift();
-      if (!frameData) return;
-
-      const binaryString = atob(frameData);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
+      const bin = atob(frameData);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       const blob = new Blob([bytes], { type: "image/jpeg" });
-      const url = URL.createObjectURL(blob);
+      const bitmap = await createImageBitmap(blob);
 
-      const img = new Image();
-      img.onload = () => {
-        if (!canvasRef.current) return;
-        const ctx = canvasRef.current.getContext("2d");
-        if (!ctx) return;
-
-        canvasRef.current.width = img.width;
-        canvasRef.current.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
-
-        frameCountRef.current++;
-        lastDrawTimeRef.current = Date.now();
-        const delta = lastDrawTimeRef.current - lastFrameTimeRef.current;
-        lastFrameTimeRef.current = lastDrawTimeRef.current;
-
-        console.log(`Displayed frame ${frameCountRef.current}, delta: ${delta}ms`);
-      };
-      img.src = url;
-    } catch (err) {
-      console.error("Frame processing error:", err);
-    } finally {
-      isProcessingRef.current = false;
-      if (frameQueueRef.current.length > 0) {
-        animationFrameRef.current = requestAnimationFrame(processNextFrame);
+      const ctx = canvasRef.current?.getContext("2d");
+      if (ctx) {
+        ctx.clearRect(0, 0, 640, 480);
+        ctx.drawImage(bitmap, 0, 0);
       }
+      bitmap.close();
+    } catch (e) {
+      console.error("Draw error:", e);
     }
   };
 
+  // Unmount temizliği
   useEffect(() => {
-    mountedRef.current = true;
-
-    const handleProcessedFrame = (data: any) => {
-      if (!mountedRef.current) return;
-
-      if (data.source_id === sourceId) {
-        frameQueueRef.current.push(data.frame);
-        if (!isProcessingRef.current) {
-          animationFrameRef.current = requestAnimationFrame(processNextFrame);
-        }
-      }
-    };
-
-    socket?.on("processed_frame", handleProcessedFrame);
-
     return () => {
-      console.log("Unmounting VideoStream for", sourceId);
-      mountedRef.current = false;
-
-      socket?.off("processed_frame", handleProcessedFrame);
-
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-
-      frameQueueRef.current = [];
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      frameBufferRef.current = [];
     };
-  }, [sourceId, socket]);
+  }, []);
 
   return (
     <div className="relative w-full h-full">
@@ -124,7 +124,10 @@ export const VideoStream = ({ sourceId, onAnomalyDetected, onStatusChange }: Vid
           Device is offline
         </div>
       )}
-      <canvas ref={canvasRef} className="w-full h-full object-contain bg-black" />
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full object-contain bg-black"
+      />
     </div>
   );
 };

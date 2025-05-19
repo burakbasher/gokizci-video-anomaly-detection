@@ -5,10 +5,12 @@ from flask_socketio import emit, join_room, leave_room
 from datetime import datetime
 from app.extensions import socketio
 from models.device import Device
-from app.extensions import frame_queue
+from app.extensions import pool, _process_frame_job
+import logging
 
 sid_to_source = {}
 
+logger = logging.getLogger(__name__)
 
 @socketio.on('connect')
 def handle_connect():
@@ -64,15 +66,18 @@ def handle_video_frame(data):
         source_id = data.get('source_id')
         frame_data = data.get('frame')
         if not source_id or not frame_data:
+            emit('error', {'message': 'Missing source_id or frame data'}, room=request.sid)
             return
 
-        # Eventlet kuyruğuna ekle (aynı proses içinde)        
-        frame_queue.put((source_id, frame_data))
-        print(f"[SERVER] enqueueing frame for {source_id}")
+        # Direkt bir worker’a delege et
+        # pool: eventlet.GreenPool(size=WORKER_COUNT)  
+        pool.spawn_n(_process_frame_job, source_id, frame_data)
+        logger.info(f"[SERVER] enqueueing frame for {source_id}")
     except Exception as e:
         # Hata olursa yalnızca ilgili client’a bilgi gönderelim
         emit('error', {'message': f'Video frame işleme hatası: {e}'}, room=request.sid)
-        print(f"Error in video_frame handler: {e}")
+        logger.error(f"Error in video_frame handler: {e}")
+
 
 @socketio.on('device_connect')
 def handle_device_connect(data):
