@@ -1,3 +1,5 @@
+"components/popups/PopUpChangePassword.tsx"
+
 "use client";
 
 import React, { useState, ChangeEvent } from 'react';

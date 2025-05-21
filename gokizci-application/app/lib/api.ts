@@ -1,8 +1,10 @@
+"app/lib/api.ts"
+
 let csrfToken: string | null = null;
 
 
 /**
- * CSRF token’ı getirir. 
+ * CSRF token'ı getirir. 
  * @param force Eğer true ise önbelleğe bakmadan mutlaka sunucudan yeni token alır.
  */
 export async function getCsrfToken(force = false): Promise<string> {
@@ -11,7 +13,7 @@ export async function getCsrfToken(force = false): Promise<string> {
     return csrfToken;
   }
 
-  // 2) localStorage’da varsa ve force===false, orayı yükle
+  // 2) localStorage'da varsa ve force===false, orayı yükle
   const stored = localStorage.getItem('csrfToken');
   if (!force && stored) {
     csrfToken = stored;
@@ -34,15 +36,15 @@ export async function getCsrfToken(force = false): Promise<string> {
     throw new Error('CSRF token boş geldi');
   }
 
-  // 4) localStorage’a kaydet
+  // 4) localStorage'a kaydet
   localStorage.setItem('csrfToken', csrfToken);
   return csrfToken;
 }
 
 
 /**
- * Ortak header’ları oluşturur. 
- * CSRF token’ı header’a ekler, gerekiyorsa body için Content-Type.
+ * Ortak header'ları oluşturur. 
+ * CSRF token'ı header'a ekler, gerekiyorsa body için Content-Type.
  */
 async function getHeaders(contentType = true): Promise<Record<string,string>> {
   const token = await getCsrfToken(false);
@@ -97,7 +99,7 @@ export async function logoutUser() {
 
 export async function loginUser(email: string, password: string) {
   try {
-    // Önceki token’ları temizle
+    // Önceki token'ları temizle
     csrfToken = null;
     localStorage.removeItem('csrfToken');
     localStorage.removeItem('isLoggedIn');
@@ -116,7 +118,7 @@ export async function loginUser(email: string, password: string) {
       throw new Error(data.error || 'Giriş başarısız');
     }
 
-    // Yeni CSRF token’ı alıp sakla
+    // Yeni CSRF token'ı alıp sakla
     const headerToken = res.headers.get('X-CSRF-Token');
     if (headerToken) {
       csrfToken = headerToken;
@@ -138,7 +140,7 @@ export async function registerUser(
   role: string = 'user'
 ) {
   try {
-    // Önceki token’ları temizle
+    // Önceki token'ları temizle
     csrfToken = null;
     localStorage.removeItem('csrfToken');
     localStorage.removeItem('isLoggedIn');
@@ -156,7 +158,7 @@ export async function registerUser(
       throw new Error(data.error || 'Kayıt başarısız');
     }
 
-    // Gelen CSRF token’ı sakla
+    // Gelen CSRF token'ı sakla
     const headerToken = res.headers.get('X-CSRF-Token');
     if (headerToken) {
       csrfToken = headerToken;
@@ -383,26 +385,54 @@ export async function fetchReplaySegments(
   start?: string,
   end?: string
 ): Promise<
-  { timestamp: string; anomaly: boolean; confidence?: number }[]
+  { timestamp: string; anomaly: boolean; confidence?: number; frame?: string }[]
 > {
-  const params = new URLSearchParams();
-  if (start) params.append("start", start);
-  if (end)   params.append("end",   end);
+  try {
+    const headers = await getHeaders();
+    const params = new URLSearchParams();
+    if (start) params.append("start", start);
+    if (end)   params.append("end",   end);
 
+    const res = await fetch(
+      `http://localhost:5000/api/replay/${sourceId}/segments?${params.toString()}`,
+      {
+        method: "GET",
+        headers,
+        credentials: "include",
+        cache: "no-store",
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Replay segments alınamadı");
+    }
+
+    const data = await res.json();
+    return data.segments;
+  } catch (error) {
+    console.error('Fetch replay segments error:', error);
+    throw error;
+  }
+}
+
+export async function fetchReplayMeta(sourceId: string, windowStart?: string) {
+  const params = new URLSearchParams();
+  if (windowStart) params.append("window_start", windowStart);
+  const headers = await getHeaders();
   const res = await fetch(
-    `http://localhost:5000/api/replay/${sourceId}/segments?${params.toString()}`,
+    `http://localhost:5000/api/replay/${sourceId}/meta?${params.toString()}`,
     {
       method: "GET",
+      headers,
       credentials: "include",
       cache: "no-store",
     }
   );
-
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Replay segments alınamadı");
+    throw new Error(err.error || "Replay meta alınamadı");
   }
-
   const data = await res.json();
-  return data.segments;
+  return data;
 }

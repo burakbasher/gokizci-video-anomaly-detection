@@ -1,3 +1,5 @@
+"app/(pages)/auth/page.tsx"
+
 "use client";
 import { Login} from '../../../components/auths/Login';
 import { Register } from '@/components/auths/Register';

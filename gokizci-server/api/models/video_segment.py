@@ -1,5 +1,4 @@
-"""api/models/video_segment.py"""
-
+# api/models/video_segment.py
 from mongoengine import Document, StringField, DateTimeField, BooleanField, BinaryField, FloatField
 from datetime import datetime
 
@@ -8,7 +7,7 @@ class VideoSegment(Document):
     frame_data = BinaryField(required=True)  # Base64 encoded frame
     timestamp = DateTimeField(default=datetime.utcnow)
     anomaly_detected = BooleanField(default=False)
-    confidence = FloatField() 
+    confidence = FloatField()
 
     def to_dict(self):
         return {
@@ -23,9 +22,11 @@ class VideoSegment(Document):
         'collection': 'video_segments',
         'indexes': [
             'source_id',
-            'timestamp',
+            # 'timestamp', # Bu satırı değiştiriyoruz
+            {'fields': ['timestamp'], 'expireAfterSeconds': 3600, 'background': True}, # TTL index tanımı
             'anomaly_detected',
             ('source_id', 'timestamp')  # Compound index for efficient querying
         ],
-        'index_background': True
-    } 
+        # index_background: True # Genel background ayarı, bireysel indexlerde belirtildiği için kaldırılabilir veya kalabilir.
+                                  # Yukarıdaki TTL index tanımına background:True ekledim.
+    }

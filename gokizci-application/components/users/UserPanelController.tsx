@@ -1,4 +1,5 @@
-// UserPanel.tsx
+"components/users/UserPanelController.tsx"
+
 "use client";
 
 import React from "react";

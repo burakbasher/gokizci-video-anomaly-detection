@@ -1,3 +1,5 @@
+"app/page.tsx"
+
 'use client'
 
 import { BlackButton } from '@/components/buttons/BlackButton';

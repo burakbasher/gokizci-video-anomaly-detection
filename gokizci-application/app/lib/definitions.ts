@@ -1,3 +1,5 @@
+"app/lib/definitions.ts"
+
 // Form Kontrolleri
 export const userFormControls = [
     {

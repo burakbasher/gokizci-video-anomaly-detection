@@ -1,3 +1,5 @@
+"components/loading.tsx"
+
 /**
  * Loading Component:
  * - Displays a spinning loader icon to indicate that content is being loaded.

@@ -1,3 +1,5 @@
+"components/contexts/AuthContext.tsx"
+
 "use client";
 import { createContext, useContext, useState, useEffect } from "react";
 import { fetchUser } from "@/app/lib/api";

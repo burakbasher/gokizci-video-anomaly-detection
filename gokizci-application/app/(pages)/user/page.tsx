@@ -1,4 +1,4 @@
-
+"app/(pages)/user/page.tsx"
 
 import { DevicePanel } from '@/components/devices/DevicePanel';
 import { UserPanelController } from '@/components/users/UserPanelController';

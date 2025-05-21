@@ -1,3 +1,5 @@
+"components/buttons/BlackButton.tsx"
+
 interface ButtonProps {
   text: string;
   disabled?: boolean;

@@ -1,3 +1,5 @@
+"components/users/UserCard.tsx"
+
 import { useState } from "react";
 import { PopUpEditUser } from "../popups/PopUpEditUser";
 import { Edit2 } from "lucide-react";

@@ -1,3 +1,5 @@
+"components/hooks/useDeviceSocket.ts"
+
 import { useEffect, useCallback, useState } from 'react';
 import { useWebSocket } from '../contexts/WebSocketContext';
 

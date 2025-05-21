@@ -7,6 +7,9 @@ from mongoengine import connect
 from app.extensions import socketio
 from app.settings import Config
 from app.replay.routes import replay_bp
+from apscheduler.schedulers.background import BackgroundScheduler
+from app.replay.scheduler import initial_replay_meta_update, scheduled_replay_meta_job
+
 
 jwt = JWTManager()
 
@@ -29,12 +32,32 @@ def create_app():
     # CORS
     CORS(flask_app)
 
+    # Scheduler'ı başlat
+    scheduler = BackgroundScheduler(daemon=True)
+    scheduler.add_job(scheduled_replay_meta_job, 'interval', seconds=300)
+    scheduler.start()
+    flask_app.logger.info("APScheduler started for replay_meta jobs.")
+    
+    # Uygulama ilk kez ayağa kalktığında meta verilerini güncelle
+    # Bunu bir app context'i içinde yapmak daha güvenli olabilir
+    # eğer DB bağlantısı gibi app'e özgü kaynaklara erişiyorsa
+    with flask_app.app_context():
+        initial_replay_meta_update()
+
+    # Uygulama kapanırken scheduler'ı düzgünce kapat
+    import atexit
+    atexit.register(lambda: scheduler.shutdown())
+
     # Blueprint'leri kaydet
     from app.auth.routes import auth_bp
     from app.devices.routes import device_bp
     from app.users.routes import user_bp
+    from app.replay.routes import replay_bp
     flask_app.register_blueprint(auth_bp, url_prefix='/api/auth')
     flask_app.register_blueprint(device_bp, url_prefix='/api/devices')
     flask_app.register_blueprint(user_bp, url_prefix='/api/users')
     flask_app.register_blueprint(replay_bp, url_prefix='/api/replay')
+    
+    
+    
     return flask_app

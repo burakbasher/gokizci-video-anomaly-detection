@@ -1,3 +1,5 @@
+"app/layout.tsx"
+
 import Footer from "../components/footer";
 import Header from "../components/header";
 import '@/app/ui/global.css';

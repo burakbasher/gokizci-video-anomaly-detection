@@ -1,3 +1,5 @@
+"components/buttons/DynamicButton.tsx"
+
 interface DynamicButtonProps {
   dynamicBg: string;
   text: string;

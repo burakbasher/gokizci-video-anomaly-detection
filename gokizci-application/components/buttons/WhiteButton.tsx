@@ -1,3 +1,5 @@
+"components/buttons/WhiteButton.tsx"
+
 interface ButtonProps {
   text: string;
   disabled?: boolean;

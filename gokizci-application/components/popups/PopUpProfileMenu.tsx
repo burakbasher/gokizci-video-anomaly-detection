@@ -1,3 +1,5 @@
+"components/popups/PopUpProfileMenu.tsx"
+
 "use client";
 
 import React from "react";

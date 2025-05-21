@@ -1,3 +1,5 @@
+"app/(pages)/profile/page.tsx"
+
 "use client";
 
 import { useAuth } from "@/components/contexts/AuthContext";

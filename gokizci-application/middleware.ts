@@ -1,3 +1,5 @@
+"middleware.ts"
+
 import { NextRequest, NextResponse } from 'next/server'
 
 // Add paths that require authentication''

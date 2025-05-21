@@ -1,9 +1,12 @@
-import { Maximize, Play, PlayCircle } from "lucide-react";
+"components/monitoring/MonitoringPanel.tsx"
+
+import { Maximize, Play } from "lucide-react";
 import { VideoStream } from "../videoplayers/VideoStream";
 import { ReplayPlayer } from "../videoplayers/ReplayPlayer";
 import { MonitoringSideBar } from "./MonitoringSideBar";
 import React, { useState, useEffect } from "react";
 import { Device } from '@/app/lib/definitions';
+import { fetchReplayMeta } from '@/app/lib/api';
 
 // Mock data - ileride backend'den gelecek
 const MOCK_DATA = {
@@ -38,6 +41,15 @@ export function MonitoringPanel({ selectedDevice, onDeviceSelect, devices, sourc
     const [mode, setMode] = useState<"live" | "replay">("live");
     const [currentTime, setCurrentTime] = useState(0);
     const [replayStartTime, setReplayStartTime] = useState<string | undefined>(undefined);
+    const [meta, setMeta] = useState<{ minute_anomaly_bits: number[]; second_filled_bits: number[]; window_start: string } | null>(null);
+
+    // Replay meta verisini çek
+    useEffect(() => {
+        if (!sourceId) return;
+        const now = new Date();
+        const windowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), 0, 0, 0).toISOString();
+        fetchReplayMeta(sourceId, windowStart).then(setMeta).catch(() => setMeta(null));
+    }, [sourceId]);
 
     // Replay moduna geçiş için yardımcı fonksiyon
     const handleSeek = (time: number) => {
@@ -87,6 +99,30 @@ export function MonitoringPanel({ selectedDevice, onDeviceSelect, devices, sourc
                             </button>
                         </div>
                         <div className="bg-black rounded-lg shadow-sm overflow-hidden relative aspect-video flex items-center justify-center hover:shadow-md transition-all">
+                            {/* Replay Bar */}
+                            {meta && (
+                                <div className="absolute left-0 right-0 top-0 h-3 flex z-20 cursor-pointer" style={{margin: 4}}>
+                                    {Array.from({ length: 60 }).map((_, i) => {
+                                        const anomaly = meta.minute_anomaly_bits[i] === 1;
+                                        // O dakikada en az 1 saniye doluysa dolu say
+                                        const filled = meta.second_filled_bits.slice(i * 60, (i + 1) * 60).some(b => b === 1);
+                                        let color = '#bbb';
+                                        if (anomaly) color = '#e11d48'; // kırmızı
+                                        else if (filled) color = '#22c55e'; // yeşil
+                                        return (
+                                            <div
+                                                key={i}
+                                                title={`Dakika ${i}`}
+                                                style={{ flex: 1, height: '100%', background: color, marginLeft: i === 0 ? 0 : 1, borderRadius: 2, transition: 'background 0.2s' }}
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    handleSeek(i * 60);
+                                                }}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            )}
                             {/* Video Player */}
                             {mode === "live" ? (
                                 <VideoStream key="live-player" sourceId={sourceId} />
