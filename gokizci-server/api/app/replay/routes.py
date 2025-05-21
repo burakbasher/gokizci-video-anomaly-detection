@@ -70,23 +70,36 @@ def get_replay_segments(source_id):
 @replay_bp.route('/<string:source_id>/meta', methods=['GET'])
 @jwt_required()
 def get_replay_meta(source_id):
-    """
-    Son 1 saatlik pencere için anomaly ve doluluk bitlerini döner.
-    Query param: window_start (ör: 2025-05-19T12:00:00)
-    """
     window_start_iso = request.args.get('window_start')
     if not window_start_iso:
+        # Eğer window_start gelmezse, içinde bulunulan saatin metasını dön (veya hata ver)
         now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
         window_start = now
     else:
-        window_start = datetime.fromisoformat(window_start_iso.replace('Z', '+00:00'))
+        try:
+            window_start = datetime.fromisoformat(window_start_iso.replace('Z', '+00:00'))
+        except ValueError:
+            return jsonify({"error": "Invalid window_start format"}), 400
 
     meta = ReplayMeta.objects(source_id=source_id, window_start=window_start).first()
+
     if not meta:
-        return jsonify({"error": "No meta found"}), 404
+        # Kayıt bulunamazsa, tüm bitleri 0 olan bir varsayılan meta döndür
+        # Bu, frontend'in her zaman bir meta objesi almasını sağlar.
+        minute_anomaly_bits_default = [0] * 60 # Backend byte[] gönderiyorsa ona göre ayarla
+        second_filled_bits_default = [0] * 3600 # Backend byte[] gönderiyorsa ona göre ayarla
+        # Eğer backend byte[] gönderiyorsa:
+        # minute_anomaly_bits_default_bytes = b'\x00' * 8
+        # second_filled_bits_default_bytes = b'\x00' * 450
+
+        return jsonify({
+            "minute_anomaly_bits": minute_anomaly_bits_default,
+            "second_filled_bits": second_filled_bits_default,
+            "window_start": window_start.isoformat() # İstenen pencerenin başlangıcını yine de dön
+        }), 200 # 200 OK ama içerik "boş" olduğunu belirtiyor
 
     return jsonify({
-        "minute_anomaly_bits": list(meta.minute_anomaly_bits),
-        "second_filled_bits": list(meta.second_filled_bits),
+        "minute_anomaly_bits": list(meta.minute_anomaly_bits) if meta.minute_anomaly_bits else [0]*60,
+        "second_filled_bits": list(meta.second_filled_bits) if meta.second_filled_bits else [0]*3600,
         "window_start": meta.window_start.isoformat()
     })

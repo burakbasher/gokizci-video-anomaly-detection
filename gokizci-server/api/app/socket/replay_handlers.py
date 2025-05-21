@@ -22,15 +22,29 @@ def handle_start_replay(data):
     if not source_id:
         emit('error', {'message': 'source_id is required for replay'})
         return
-
-    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
-    segments = VideoSegment.objects(
-        source_id=source_id,
-        timestamp__gte=one_hour_ago
-    ).order_by('timestamp')
+    try:
+        
+        start_time_obj = datetime.fromisoformat(data.get('start').replace('Z', '+00:00'))
+        # endTime client'tan gelmiyorsa, örneğin start_time_obj + 1 saat veya tüm kayıtlar gibi bir mantık kurulabilir.
+        # Şimdilik sadece start_time_obj'den sonrasını alalım:
+        segments = VideoSegment.objects(
+            source_id=source_id,
+            timestamp__gte=start_time_obj 
+            # Eğer endTime da geliyorsa: timestamp__lte=end_time_obj
+        ).order_by('timestamp')
+    except Exception as e:
+        logger.error(f"[REPLAY] Error during start_replay for {source_id}: {e}", exc_info=True)
+        emit('replay_status', {'status': 'query_error', 'message': 'An error occurred while querying the database.'}, room=request.sid)
+        replay_flags[source_id] = False
+        return
+    
+    if not segments:
+        logger.info(f"[REPLAY] No segments found for {source_id} starting from {start_time_obj}")
+        emit('replay_status', {'status': 'no_segments_found', 'message': 'Replay failed: No segments found for the specified time range.'}, room=request.sid)
+        replay_flags[source_id] = False # Başka bir işlem yapma
+        return
 
     logger.info(f"[REPLAY] Starting replay for {source_id} with {len(segments)} frames")
-
     replay_flags[source_id] = True
 
     for segment in segments:

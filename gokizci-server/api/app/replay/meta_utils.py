@@ -3,6 +3,9 @@
 from datetime import datetime, timedelta
 from models.video_segment import VideoSegment
 from models.replay_meta import ReplayMeta
+import logging
+
+logger = logging.getLogger(__name__)
 
 def compute_replay_meta(source_id, window_start):
     window_end = window_start + timedelta(hours=1)
@@ -11,7 +14,19 @@ def compute_replay_meta(source_id, window_start):
         timestamp__gte=window_start,
         timestamp__lt=window_end
     )
-
+    
+    logger.info(f"COMPUTE_META: Found {segments.count()} segments for this window.") # Kaç segment bulundu?
+    
+    if not segments:
+        logger.warning(f"COMPUTE_META: No segments found for source_id={source_id} in window {window_start.isoformat()}. Meta will be empty.")
+        minute_anomaly = [0] * 60
+        second_filled = [0] * 3600
+        return ReplayMeta(
+            source_id=source_id,
+            window_start=window_start,
+            minute_anomaly_bits=minute_anomaly_bytes,
+            second_filled_bits=second_filled_bytes
+        )
     # 60 dakika, 3600 saniye
     minute_anomaly = [0] * 60
     second_filled = [0] * 3600
@@ -45,6 +60,12 @@ def compute_replay_meta(source_id, window_start):
     second_filled_bytes = int(''.join(map(str, second_filled)), 2).to_bytes(450, 'big')[-450:]
 
     
+    # Hesaplamalardan sonra bit dizilerinin içeriğini loglayın (kısaca)
+    minute_anomaly_str = ''.join(map(str, minute_anomaly))
+    second_filled_str = ''.join(map(str, second_filled))
+    logger.info(f"COMPUTE_META: Minute Anomaly Bits (first 10): {minute_anomaly_str[:10]}")
+    logger.info(f"COMPUTE_META: Second Filled Bits (first 30): {second_filled_str[:30]}")
+    
     # DB'ye kaydet/güncelle
     # meta, _ = ReplayMeta.objects.get_or_create(  # <--- ORİJİNAL SATIR
     #     source_id=source_id,
@@ -66,8 +87,10 @@ def compute_replay_meta(source_id, window_start):
             second_filled_bits=second_filled_bytes
         )
         created = True # Eğer bu bilgiye ihtiyacınız varsa
+    else:
+        meta.minute_anomaly_bits = minute_anomaly_bytes
+        meta.second_filled_bits = second_filled_bytes
         
-    meta.minute_anomaly_bits = minute_anomaly_bytes
-    meta.second_filled_bits = second_filled_bytes
+        
     meta.save()
     return meta

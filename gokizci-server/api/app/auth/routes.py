@@ -5,6 +5,7 @@ from flask import Blueprint, request, jsonify, make_response
 from flask_jwt_extended import create_access_token, get_csrf_token, jwt_required, get_jwt_identity
 from bson import ObjectId
 from models.user import User
+from datetime import datetime, timezone
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -126,8 +127,9 @@ def change_password():
         if not user.check_password(old_password):
             return jsonify({'error': 'Current password is incorrect'}), 400
 
+        
         user.password = new_password
-        user.last_password_change = datetime.now()
+        user.last_password_change = datetime.now(timezone.utc)
         user.save()
 
         return jsonify({'message': 'Password changed successfully'}), 200

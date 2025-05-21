@@ -1,11 +1,11 @@
 # api/models/video_segment.py
 from mongoengine import Document, StringField, DateTimeField, BooleanField, BinaryField, FloatField
-from datetime import datetime
+from datetime import datetime, timezone
 
 class VideoSegment(Document):
     source_id = StringField(required=True)
     frame_data = BinaryField(required=True)  # Base64 encoded frame
-    timestamp = DateTimeField(default=datetime.utcnow)
+    timestamp = DateTimeField(default=lambda: datetime.now(timezone.utc))
     anomaly_detected = BooleanField(default=False)
     confidence = FloatField()
 

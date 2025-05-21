@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { useWebSocket } from '../contexts/WebSocketContext'; 
 
 interface UseVideoSocketProps {
   sourceId: string;
@@ -10,81 +11,40 @@ interface UseVideoSocketProps {
 }
 
 export const useVideoSocket = ({ sourceId, onAnomalyDetected, onStatusChange }: UseVideoSocketProps) => {
-  const [isConnected, setIsConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<"online" | "offline" | "error">("offline");
-  const [frame, setFrame] = useState<string|null>(null);      // ← yenisi
-  const socketRef = useRef<Socket | null>(null);
+  const { socket, isConnected: isSocketConnectedGlobally, connectToSource, disconnectFromSource } = useWebSocket(); // CONTEXT'TEN GELEN SOCKET
+  // const [isConnected, setIsConnected] = useState(false); // Bu hook'un kendi bağlantı durumu yerine global durumu kullan
+  // const socketRef = useRef<Socket | null>(null); // Artık buna gerek yok, context'teki socket kullanılacak
 
-  const connect = useCallback(() => {
-    if (!socketRef.current) {
-      socketRef.current = io("http://127.0.0.1:5000", {
-        transports: ["websocket"],
-        withCredentials: true,
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        forceNew: false,
-      });
-
-      socketRef.current.on("connect", () => {
-        console.log("Socket connected");
-        setIsConnected(true);
-        setError(null);
-        setStatus("online");
-        onStatusChange?.("online");
-      });
-
-      socketRef.current.on("disconnect", (reason) => {
-        console.log("Socket disconnected:", reason);
-        setIsConnected(false);
-        setStatus("offline");
-        onStatusChange?.("offline");
-      });
-
-      socketRef.current.on("connect_error", (err) => {
-        console.error("Connection error:", err);
-        setError(`Connection error: ${err.message}`);
-        setStatus("error");
-        onStatusChange?.("error");
-      });
-    }
-
-    if (socketRef.current) {
-      socketRef.current.emit("leave", { source_id: sourceId });
-      socketRef.current.emit("join", { source_id: sourceId });
-    }
-  }, [sourceId, onStatusChange]);
-
-  const disconnect = useCallback(() => {
-    if (socketRef.current?.connected) {
-      socketRef.current.emit("leave", { source_id: sourceId });
-    }
-  }, [sourceId]);
+  // `connect` ve `disconnect` fonksiyonları context'ten gelenleri kullanabilir veya
+  // bu hook içinde sadece event dinleme/gönderme yapılabilir.
+  // Şimdilik, context'teki join/leave (connectToSource/disconnectFromSource) mantığını kullanalım.
 
   useEffect(() => {
-    connect();
+    if (socket && sourceId) {
+      // console.log(`useVideoSocket: Joining room for ${sourceId}`);
+      connectToSource(sourceId); // Context üzerinden odaya katıl
 
-    const handleProcessedFrame = (data: any) => {
-      if (data.source_id === sourceId) {
-        onAnomalyDetected?.(data.anomaly_detected);
-        setStatus("online");
-        onStatusChange?.("online");
-      }
-    };
+      const handleProcessedFrame = (data: any) => {
+        if (data.source_id === sourceId) {
+          onAnomalyDetected?.(data.anomaly_detected);
+          // onStatusChange?.("online"); // Status yönetimi global socket'ten veya device'dan gelmeli
+        }
+      };
 
-    socketRef.current?.on("processed_frame", handleProcessedFrame);
+      socket.on("processed_frame", handleProcessedFrame);
+      // Gerekirse 'error', 'status' gibi diğer global event'ler de burada dinlenebilir
+      // veya bu event'ler WebSocketProvider seviyesinde yönetilip context üzerinden aktarılabilir.
 
-    return () => {
-      disconnect();
-      socketRef.current?.off("processed_frame", handleProcessedFrame);
-    };
-  }, [sourceId, connect, disconnect, onAnomalyDetected, onStatusChange]);
+      return () => {
+        // console.log(`useVideoSocket: Leaving room for ${sourceId}`);
+        socket.off("processed_frame", handleProcessedFrame);
+        disconnectFromSource(sourceId); // Context üzerinden odadan ayrıl
+      };
+    }
+  }, [socket, sourceId, connectToSource, disconnectFromSource, onAnomalyDetected, onStatusChange]);
 
-  return {
-    isConnected,
-    error,
-    status,
-    socket: socketRef.current
-  };
-}; 
+  // Bu hook artık kendi `isConnected`, `error`, `status` state'lerini tutmamalı,
+  // bunları ya WebSocketContext'ten almalı ya da prop olarak parent'tan.
+  // Şimdilik sadece socket'i döndürelim, ana component'ler global state'i kullanır.
+  return { socket, isSocketConnected: isSocketConnectedGlobally };
+};

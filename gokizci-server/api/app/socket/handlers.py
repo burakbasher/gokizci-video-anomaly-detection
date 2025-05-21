@@ -57,23 +57,30 @@ def handle_join(data):
         print(f"Error in join handler: {e}")
 
 @socketio.on('video_frame')
-def handle_video_frame(data):
+def handle_video_frame(frame_payload: dict):
     """
     Ana sunucu hiçbir CPU-yoğun iş yapmıyor, sadece delege ediyor.
     """
     try:
-        source_id = data.get('source_id')
-        frame_data = data.get('frame')
+        source_id = frame_payload.get('source_id')
+        frame_data = frame_payload.get('frame')
         if not source_id or not frame_data:
+            logger.warning(f"Received video_frame without source_id in payload. SID: {request.sid}. Payload keys: {list(frame_payload.keys())}")
             emit('error', {'message': 'Missing source_id or frame data'}, room=request.sid)
             return
+        
 
         # Direkt bir worker'a delege et
         # pool: eventlet.GreenPool(size=WORKER_COUNT)  
-        pool.spawn_n(_process_frame_job, source_id, frame_data)
+        pool.spawn_n(_process_frame_job, source_id, frame_payload)
+
         logger.info(f"[SERVER] enqueueing frame for {source_id}")
+    except AttributeError as ae: # Örneğin frame_payload dict değilse
+        logger.error(f"Error in video_frame handler (AttributeError - possibly not a dict?): {ae}. Received data: {type(frame_payload)}", exc_info=True)
+        emit('error', {'message': f'Invalid frame payload format: {ae}'}, room=request.sid)
     except Exception as e:
         # Hata olursa yalnızca ilgili client'a bilgi gönderelim
+        logger.error(f"Error in video_frame handler for source_id '{frame_payload.get('source_id', 'N/A')}': {e}", exc_info=True)
         emit('error', {'message': f'Video frame işleme hatası: {e}'}, room=request.sid)
         logger.error(f"Error in video_frame handler: {e}")
 

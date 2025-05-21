@@ -17,7 +17,7 @@ export const VideoStream = ({
   onStatusChange,
 }: VideoStreamProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { isConnected, error, status, socket } = useVideoSocket({
+  const { isSocketConnected, socket } = useVideoSocket({
     sourceId,
     onAnomalyDetected,
     onStatusChange,
@@ -137,12 +137,7 @@ export const VideoStream = ({
 
   return (
     <div className="relative w-full h-full">
-      {error && (
-        <div className="absolute top-0 left-0 right-0 bg-red-500 text-white p-2 text-sm">
-          {error}
-        </div>
-      )}
-      {!isConnected && !error && (
+      {!isSocketConnected && (
         <div className="absolute top-0 left-0 right-0 bg-yellow-500 text-white p-2 text-sm">
           Connecting...
         </div>
