@@ -5,7 +5,7 @@ from flask_socketio import emit, join_room, leave_room
 from datetime import datetime
 from app.extensions import socketio
 from models.device import Device
-from app.extensions import pool, _process_frame_job
+from app.extensions import pool, _process_single_frame_from_batch
 import logging
 
 sid_to_source = {}
@@ -56,11 +56,13 @@ def handle_join(data):
     except Exception as e:
         print(f"Error in join handler: {e}")
 
+
+"""
 @socketio.on('video_frame')
 def handle_video_frame(frame_payload: dict):
-    """
+    """"""
     Ana sunucu hiçbir CPU-yoğun iş yapmıyor, sadece delege ediyor.
-    """
+    """"""
     try:
         source_id = frame_payload.get('source_id')
         frame_data = frame_payload.get('frame')
@@ -83,6 +85,33 @@ def handle_video_frame(frame_payload: dict):
         logger.error(f"Error in video_frame handler for source_id '{frame_payload.get('source_id', 'N/A')}': {e}", exc_info=True)
         emit('error', {'message': f'Video frame işleme hatası: {e}'}, room=request.sid)
         logger.error(f"Error in video_frame handler: {e}")
+"""
+
+@socketio.on('video_frame_batch')
+def handle_video_frame_batch(batch_payload: dict):
+    source_id = batch_payload.get('source_id')
+    frames_in_batch = batch_payload.get('frames')
+
+    if not source_id or not isinstance(frames_in_batch, list) or not frames_in_batch:
+        logger.warning(f"Invalid batch payload received for SID {request.sid}")
+        return
+
+    logger.info(f"[HANDLER] Received batch of {len(frames_in_batch)} frames for source_id: {source_id} from SID: {request.sid}")
+    
+    # Batch içindeki frame'leri istemci zaman damgasına göre sırala (isteğe bağlı ama önerilir)
+    # Bu, ağda veya istemci tarafındaki buffer'lamada oluşabilecek küçük sıra kaymalarını düzeltir.
+    try:
+        sorted_frames = sorted(frames_in_batch, key=lambda f: f.get('client_timestamp_abs', 0))
+    except TypeError: # Eğer client_timestamp_abs yoksa veya None ise
+        logger.error(f"Cannot sort frames in batch for {source_id} due to missing/invalid 'client_timestamp_abs'. Processing as received.")
+        sorted_frames = frames_in_batch # Sıralama yapmadan devam et
+
+
+    for frame_index, frame_data in enumerate(sorted_frames):
+        # Log: Batch içindeki bir frame işlenmek üzere pool'a gönderiliyor
+        client_seq = frame_data.get('sequence', 'N/A')
+        logger.debug(f"[HANDLER] Spawning job for frame {frame_index + 1}/{len(sorted_frames)} from batch. Source: {source_id}, ClientSeq: {client_seq}")
+        pool.spawn_n(_process_single_frame_from_batch, source_id, frame_data)
 
 
 @socketio.on('device_connect')

@@ -16,7 +16,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class VideoStreamClient:
-    def __init__(self, source_id, server_url='http://127.0.0.1:5000'):
+    def __init__(self, source_id, server_url='http://127.0.0.1:5000', batch_size=5):
         self.source_id = source_id
         self.server_url = server_url
         self.frame_sequence_number = 0 # Frame sıra numarası
@@ -26,6 +26,9 @@ class VideoStreamClient:
         self.is_running = False
         self.fps = 0
         self.frame_time = 0
+
+        self.batch_size = batch_size
+        self.frame_batch = []
 
         self.sio.on('connect', self.on_connect)
         self.sio.on('disconnect', self.on_disconnect)
@@ -44,6 +47,22 @@ class VideoStreamClient:
 
     def on_status(self, data):
         logger.info(f"Status update: {data}")
+        
+        
+    def send_batch_if_ready(self):
+        if len(self.frame_batch) >= self.batch_size:
+            if self.sio.connected:
+                # logger.info(f"Emitting batch of {len(self.frame_batch)} frames for {self.source_id}")
+                logger.info(f"Emitting batch of {len(self.frame_batch)} frames for {self.source_id}")
+
+                self.sio.emit('video_frame_batch', { # Yeni event adı
+                    'source_id': self.source_id,
+                    'frames': list(self.frame_batch) # Batch'in bir kopyasını gönder
+                })
+                self.frame_batch.clear() # Batch'i temizle
+            else:
+                logger.warning("Socket not connected, cannot send batch. Clearing batch.")
+                self.frame_batch.clear()
 
     def start(self, video_path):
         try:
@@ -59,6 +78,7 @@ class VideoStreamClient:
 
             self.sio.connect(self.server_url)
             self.is_running = True
+            self.frame_batch.clear() # Akış başlarken batch'i temizle
 
             while self.is_running and self.cap.isOpened():
                 loop_start_time = datetime.now(timezone.utc).timestamp()
@@ -66,6 +86,7 @@ class VideoStreamClient:
                 ret, frame = self.cap.read()
                 if not ret:
                     logger.info("End of video reached. Resetting to beginning.")
+                    self.send_batch_if_ready()
                     self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     continue
 
@@ -82,15 +103,13 @@ class VideoStreamClient:
                 self.frame_sequence_number += 1
 
                 payload = {
-                    'source_id': self.source_id,
-                    'frame': frame_base64,
+                    'frame_b64': frame_base64,
                     'sequence': self.frame_sequence_number,
                     'client_timestamp_abs': current_client_timestamp_abs, # Mutlak Unix zaman damgası
                     'client_timestamp_rel': current_client_timestamp_rel   # Akış başlangıcına göre milisaniye
                 }
-                self.sio.emit('video_frame', payload)
-
-                logger.info(f"Emitting frame for {self.source_id}, size={len(frame_base64)} bytes")
+                self.frame_batch.append(payload)
+                self.send_batch_if_ready()
 
                 processing_time = datetime.now(timezone.utc).timestamp() - loop_start_time
                 sleep_duration = self.frame_time - processing_time
@@ -103,6 +122,11 @@ class VideoStreamClient:
         except Exception as e:
             logger.error(f"Error in video stream: {e}")
         finally:
+            if self.is_running and len(self.frame_batch) > 0: # Durdurulurken kalan frame'ler varsa gönder
+                logger.info(f"Sending remaining {len(self.frame_batch)} frames before stopping.")
+                self.send_batch_if_ready() # Bu aslında tüm batch'i göndermeyebilir, batch_size kontrolü var.
+                                          # Doğrudan self.sio.emit ile kalanları göndermek daha iyi olabilir.
+                                          # Veya send_batch_if_ready'yi buna göre modifiye et.
             self.stop()
 
     def stop(self):

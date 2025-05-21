@@ -9,36 +9,46 @@ logger = logging.getLogger(__name__)
 
 def compute_replay_meta(source_id, window_start):
     window_end = window_start + timedelta(hours=1)
+    
+    logger.info(f"COMPUTE_META: Querying segments for source_id={source_id}, "
+        f"window_start_utc={window_start.isoformat()}, window_end_utc={window_end.isoformat()}")
+    
     segments = VideoSegment.objects(
         source_id=source_id,
         timestamp__gte=window_start,
         timestamp__lt=window_end
     )
-    
-    logger.info(f"COMPUTE_META: Found {segments.count()} segments for this window.") # Kaç segment bulundu?
-    
+    found_segments_count = segments.count() # Sayıyı bir kere alalım
+
+    logger.info(f"COMPUTE_META: Found {found_segments_count} segments for this window.") # Kaç segment bulundu?
+    minute_anomaly = [0] * 60
+    second_filled = [0] * 3600
+
+    minute_anomaly_bytes = int(''.join(map(str, minute_anomaly)), 2).to_bytes(8, 'big')[-8:]
+    second_filled_bytes = int(''.join(map(str, second_filled)), 2).to_bytes(450, 'big')[-450:]
     if not segments:
         logger.warning(f"COMPUTE_META: No segments found for source_id={source_id} in window {window_start.isoformat()}. Meta will be empty.")
-        minute_anomaly = [0] * 60
-        second_filled = [0] * 3600
         return ReplayMeta(
             source_id=source_id,
             window_start=window_start,
             minute_anomaly_bits=minute_anomaly_bytes,
             second_filled_bits=second_filled_bytes
         )
-    # 60 dakika, 3600 saniye
-    minute_anomaly = [0] * 60
-    second_filled = [0] * 3600
 
-    # Saniye ve dakika bazında frame ve anomaly say
+    # Saniye ve dakika bazında frame ve anomaly sayılarını hesapla
     second_frames = [[] for _ in range(3600)]
     minute_anomaly_counts = [0] * 60
     minute_total_counts = [0] * 60
 
     for seg in segments:
-        dt = seg.timestamp.replace(tzinfo=None)
-        sec_idx = int((dt - window_start).total_seconds())
+        try:
+            time_diff_seconds = (seg.timestamp - window_start).total_seconds()
+        except TypeError:
+            logger.error(f"COMPUTE_META: Error calculating time difference for segment {seg.id}. "
+                         f"Timestamp: {seg.timestamp}, Window start: {window_start}")
+            continue
+
+        sec_idx = int(time_diff_seconds)
         min_idx = sec_idx // 60
         if 0 <= sec_idx < 3600 and 0 <= min_idx < 60:
             second_frames[sec_idx].append(seg.anomaly_detected)
