@@ -218,7 +218,6 @@ export function MonitoringPanel({ selectedDevice, onDeviceSelect, devices, sourc
                                         startTime={replayPlayerStartTime}
                                         fps={20}
                                         isPlaying={isReplayPlaying}
-                                        onPlaybackStatusChange={handleReplayPlaybackStatusChange}
                                     />
                                 )
                             )}
