@@ -16,22 +16,27 @@ logger = logging.getLogger(__name__)
 @socketio.on('start_replay')
 def handle_start_replay(data):
     source_id = data.get('source_id')
-    fps = data.get('fps', 10)
+    fps = data.get('fps', 30)
     delay = 1.0 / fps
 
     if not source_id:
         emit('error', {'message': 'source_id is required for replay'})
         return
     try:
+        logger.info(f"[REPLAY_HANDLER] Received 'start_replay' for source_id: {data.get('source_id')}, start_time: {data.get('start')}")
         
         start_time_obj = datetime.fromisoformat(data.get('start').replace('Z', '+00:00'))
         # endTime client'tan gelmiyorsa, örneğin start_time_obj + 1 saat veya tüm kayıtlar gibi bir mantık kurulabilir.
         # Şimdilik sadece start_time_obj'den sonrasını alalım:
+        logger.info(f"[REPLAY_HANDLER] Querying segments from: {start_time_obj.isoformat()}")
+
         segments = VideoSegment.objects(
             source_id=source_id,
             timestamp__gte=start_time_obj 
             # Eğer endTime da geliyorsa: timestamp__lte=end_time_obj
         ).order_by('timestamp')
+        logger.info(f"[REPLAY_HANDLER] Found {segments.count()} segments for replay.")
+
     except Exception as e:
         logger.error(f"[REPLAY] Error during start_replay for {source_id}: {e}", exc_info=True)
         emit('replay_status', {'status': 'query_error', 'message': 'An error occurred while querying the database.'}, room=request.sid)
@@ -52,9 +57,17 @@ def handle_start_replay(data):
             if not replay_flags[source_id]:
                 break
 
-            frame_base64 = segment.frame_data.decode("utf-8") \
-                if isinstance(segment.frame_data, Binary) else segment.frame_data
+            # frame_base64 = segment.frame_data.decode("utf-8") \
+            #     if isinstance(segment.frame_data, Binary) else segment.frame_data
+            
+            if isinstance(segment.frame_data, bytes): # MongoEngine BinaryField'ı bytes olarak döndürür
+                frame_base64 = segment.frame_data.decode('utf-8')
+            else: # Bu durum olmamalı ama fallback
+                frame_base64 = str(segment.frame_data)
 
+                
+            logger.debug(f"[REPLAY_HANDLER] Emitting replay_frame for ts: {segment.timestamp.isoformat()}")
+            logger.debug(f"Emitting base64 (first 100 chars): {frame_base64[:100]}")
             emit('replay_frame', {
                 'frame': frame_base64,
                 'timestamp': segment.timestamp.isoformat(),

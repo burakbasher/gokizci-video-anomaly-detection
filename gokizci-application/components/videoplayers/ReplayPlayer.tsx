@@ -12,6 +12,8 @@ interface ReplayPlayerProps {
   startTime?: string;  // ISO timestamp (Oynatmaya başlanacak kesin zaman)
   endTime?: string;    // ISO timestamp (Oynatmanın biteceği kesin zaman - opsiyonel)
   fps?: number;
+  isPlaying: boolean; // YENİ PROP: Oynatma durumunu dışarıdan alır
+  onPlaybackStatusChange?: (isPlaying: boolean) => void; // Opsiyonel: Durum değiştiğinde parent'a bilgi
 }
 
 export const ReplayPlayer: React.FC<ReplayPlayerProps> = ({
@@ -19,7 +21,9 @@ export const ReplayPlayer: React.FC<ReplayPlayerProps> = ({
   mode,
   startTime,
   endTime,
-  fps = 15, // İsteğe bağlı, saniyedeki kare sayısı
+  fps = 35, // İsteğe bağlı, saniyedeki kare sayısı
+  isPlaying: propIsPlaying, // prop'u farklı bir isimle alalım
+  onPlaybackStatusChange,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bufferRef = useRef<ArrayBuffer[]>([]); // Frame buffer'ı ArrayBuffer tutacak
@@ -34,8 +38,13 @@ export const ReplayPlayer: React.FC<ReplayPlayerProps> = ({
 
   const [playerMessage, setPlayerMessage] = useState<string | null>(null); // Kullanıcıya gösterilecek mesaj
   const noDataTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Zaman aşımı ID'si
+
+  const internalIsPlaying = useRef(false); // ReplayPlayer'ın kendi iç oynatma durumu
+
   // Canvas'a frame çizme fonksiyonu
   const drawFrame = useCallback(async (frameBuffer: ArrayBuffer) => {
+    const t0 = performance.now();
+
     if (!frameBuffer || !canvasRef.current) {
       // console.warn("drawFrame: frameBuffer or canvasRef is null/undefined.");
       return;
@@ -70,11 +79,16 @@ export const ReplayPlayer: React.FC<ReplayPlayerProps> = ({
         cancelAnimationFrame(rafRef.current);
       }
     }
+    const t1 = performance.now();
+    console.log(`drawFrame time: ${t1 - t0} ms`);
   }, []); // Bağımlılık yok (canvasRef.current değişmez bir referans)
 
   // Frame buffer'ından kareleri alıp çizen döngü
   const playLoop = useCallback((now: number) => {
-    if (!isPlaying.current) return;
+    if (!isPlaying.current) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      return;
+    }
 
     if (now - lastRender.current >= frameInterval) {
       const frame = bufferRef.current.shift(); // Buffer'dan bir frame al (FIFO)
@@ -87,14 +101,39 @@ export const ReplayPlayer: React.FC<ReplayPlayerProps> = ({
       } else {
         // console.log("Replay buffer empty or replay finished.");
         isPlaying.current = false; // Buffer boşsa oynatmayı durdur
+        onPlaybackStatusChange?.(false);
         // Opsiyonel: Replay bittiğine dair bir bildirim/event
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
         return;
       }
-      lastRender.current = now; // Son render zamanını güncelle
-      // Alternatif: lastRender.current += frameInterval; (drift'i azaltmak için)
+      lastRender.current += frameInterval;      // Alternatif: lastRender.current += frameInterval; (drift'i azaltmak için)
     }
     rafRef.current = requestAnimationFrame(playLoop); // Bir sonraki frame için döngüyü tekrar çağır
-  }, [frameInterval, drawFrame]);
+  }, [frameInterval, drawFrame, onPlaybackStatusChange]);
+
+  // propIsPlaying değiştiğinde iç oynatma durumunu ve animasyon döngüsünü yönet
+  useEffect(() => {
+    if (propIsPlaying) {
+      if (!internalIsPlaying.current && bufferRef.current.length > 0) {
+        // Eğer duraklatılmışsa ve buffer'da frame varsa oynatmaya başla/devam et
+        internalIsPlaying.current = true;
+        lastRender.current = performance.now(); // Son render zamanını sıfırla
+        rafRef.current = requestAnimationFrame(playLoop);
+        setPlayerMessage(null); // Mesajı temizle
+        onPlaybackStatusChange?.(true);
+      } else if (bufferRef.current.length === 0 && startTime) {
+        // Oynatmaya çalışıyor ama buffer boş, veri bekleniyor (noDataTimeoutRef bunu yönetir)
+        // Bu durum zaten 'start_replay' emit edildiğinde ele alınıyor.
+      }
+    } else {
+      // propIsPlaying false ise oynatmayı durdur
+      if (internalIsPlaying.current) {
+        internalIsPlaying.current = false;
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        onPlaybackStatusChange?.(false);
+      }
+    }
+  }, [propIsPlaying, playLoop, startTime, onPlaybackStatusChange]);
 
   // Socket üzerinden gelen 'replay_frame' event'lerini dinle
   useEffect(() => {
@@ -112,9 +151,11 @@ export const ReplayPlayer: React.FC<ReplayPlayerProps> = ({
       let frameAddedToBuffer = false
       // DEBUG: Gelen frame verisini logla
       // console.log(`ReplayPlayer.tsx (handleReplayFrame): Received frame data for ${sourceId}`, data.frame);
+      console.log(`Replay buffer size: ${bufferRef.current.length}`);
 
       if (data.frame instanceof ArrayBuffer) {
         bufferRef.current.push(data.frame);
+        console.log(`Replay buffer size: ${bufferRef.current.length}`);
         frameAddedToBuffer = true;
 
         // === InvalidStateError DEBUGGING ===
@@ -139,6 +180,8 @@ export const ReplayPlayer: React.FC<ReplayPlayerProps> = ({
         // === DEBUGGING SONU ===
 
       } else if (typeof data.frame === 'string' && data.frame.length > 0) {
+        console.log("ReplayPlayer received base64 string (first 100):", data.frame.substring(0, 100)); // Logla
+        console.log("ReplayPlayer received base64 string (last 100):", data.frame.substring(data.frame.length - 100)); // Logla
         console.warn("ReplayPlayer received a string frame (expected ArrayBuffer). Attempting atob (this is unusual).");
         try {
           const bin = atob(data.frame);

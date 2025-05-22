@@ -98,8 +98,28 @@ def get_replay_meta(source_id):
             "window_start": window_start.isoformat() # İstenen pencerenin başlangıcını yine de dön
         }), 200 # 200 OK ama içerik "boş" olduğunu belirtiyor
 
+    def bytes_to_bit_list(byte_data, expected_length):
+        if not byte_data:
+            return [0] * expected_length
+        
+        # byte_data'yı (örneğin b'\x01\x80') bir tam sayıya çevir
+        # int.from_bytes(byte_data, 'big') -> örneğin 0b0000000110000000
+        # sonra bunu '0b' prefix'i olmadan binary string'e çevir: bin(...)[2:]
+        # ve expected_length kadar sola sıfırla doldur: .zfill(expected_length)
+        # sonra her karakteri int'e çevirerek listeye al: [int(bit) for bit in bit_string]
+        
+        bit_string = bin(int.from_bytes(byte_data, 'big'))[2:].zfill(expected_length)
+        return [int(bit) for bit in bit_string]
+
+    minute_anomaly_list = bytes_to_bit_list(meta.minute_anomaly_bits, 60)
+    second_filled_list = bytes_to_bit_list(meta.second_filled_bits, 3600)
+
     return jsonify({
-        "minute_anomaly_bits": list(meta.minute_anomaly_bits) if meta.minute_anomaly_bits else [0]*60,
-        "second_filled_bits": list(meta.second_filled_bits) if meta.second_filled_bits else [0]*3600,
+        "minute_anomaly_bits": minute_anomaly_list,
+        "second_filled_bits": second_filled_list,
         "window_start": meta.window_start.isoformat()
     })
+
+
+
+

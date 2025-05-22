@@ -16,7 +16,7 @@ def process_video_frame(source_id, frame_data):
         return {
             'frame': frame_data,
             'timestamp': datetime.utcnow().isoformat(),
-            'anomaly_detected': False,
+            'anomaly_detected': True,
             'source_id': source_id,
             'confidence': 0.0
 

@@ -23,7 +23,7 @@ class VideoSegment(Document):
         'indexes': [
             'source_id',
             # 'timestamp', # Bu satırı değiştiriyoruz
-            {'fields': ['timestamp'], 'expireAfterSeconds': 3600, 'background': True}, # TTL index tanımı
+            {'fields': ['timestamp'], 'expireAfterSeconds': 3600},
             'anomaly_detected',
             ('source_id', 'timestamp')  # Compound index for efficient querying
         ],

@@ -1,3 +1,5 @@
+"""api/app/extensions.py"""
+
 import eventlet
 from eventlet import tpool
 from flask_socketio import SocketIO
@@ -134,11 +136,11 @@ def _process_single_frame_from_batch(source_id: str, frame_data_in_batch: dict):
             return
 
         # AI İşleme
-        result = tpool.execute(process_video_frame, source_id, frame_b64)
+        result = process_video_frame(source_id, frame_b64)
         if not result: return    
         
          # DB Kaydı
-        db_timestamp_utc = datetime.fromtimestamp(client_ts_rel, tz=timezone.utc)
+        db_timestamp_utc = datetime.fromtimestamp(client_ts_abs, tz=timezone.utc)
             
         segment = VideoSegment(
             source_id=source_id,

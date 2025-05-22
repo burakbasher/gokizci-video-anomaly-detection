@@ -11,5 +11,7 @@ eventlet==0.33.3
 mongoengine==0.27.0
 pymongo==4.5.0
 
+tensorflow==2.12.0
+
 opencv-python==4.9.0.80
-numpy==1.24.4
+numpy==1.26.4
