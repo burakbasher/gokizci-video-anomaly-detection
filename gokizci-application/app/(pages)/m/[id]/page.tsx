@@ -2,12 +2,13 @@
 
 "use client"
 
-import { useEffect, useState } from 'react'; // ChangeEvent kaldırıldı
+import { useCallback, useEffect, useState } from 'react'; // ChangeEvent kaldırıldı
 import { MonitoringPanel } from '@/components/monitoring/MonitoringPanel';
 import { fetchDevices, fetchReplayMeta } from '@/app/lib/api';
 import { Device } from '@/app/lib/definitions';
 import { useRouter } from 'next/navigation';
 import { Loading } from '@/components/loading';
+import { MonitoringSideBar } from '@/components/monitoring/MonitoringSideBar';
 
 interface ReplayMetaData {
     minute_anomaly_bits: number[];
@@ -21,7 +22,17 @@ export default function Page({ params }: { params: { id: string } }) {
     const [replayMeta, setReplayMeta] = useState<ReplayMetaData | null>(null);
     const [isLoadingMeta, setIsLoadingMeta] = useState(false);
     const router = useRouter();
+    const [selectedReplayWindow, setSelectedReplayWindow] = useState<string | null>(null);
 
+    
+    const handleDeviceSelectionFromSidebar = useCallback((device: Device) => { // Satır 92
+        setSelectedReplayWindow(null);
+    }, []);
+
+    const handleWindowSelectionFromSidebar = useCallback((windowStartISO: string) => {
+        setSelectedReplayWindow(windowStartISO);
+    }, []);
+    
     // Cihazları yükleme
     useEffect(() => {
         async function loadDevices() {
@@ -35,40 +46,50 @@ export default function Page({ params }: { params: { id: string } }) {
         loadDevices();
     }, [params.id]);
 
-    // Seçili cihaz değiştiğinde veya periyodik olarak replay meta'yı yükle
     useEffect(() => {
-        const fetchMetaForCurrentWindow = async () => {
-            if (selectedDevice) {
+        const fetchMeta = async () => {
+            if (selectedDevice?.source_id) {
                 setIsLoadingMeta(true);
-                // Her zaman mevcut saatin bir önceki saat başını al
-                const now = new Date();
-                const currentWindowStart = new Date(
-                    now.getFullYear(),
-                    now.getMonth(),
-                    now.getDate(),
-                    now.getHours(), // Mevcut saat diliminin başlangıcı
-                    0, 0, 0
-                ).toISOString();
+                let windowToFetch = selectedReplayWindow;
 
+                if (!windowToFetch) { // Eğer kullanıcı bir pencere seçmediyse, son 1 saati al
+                    const now = new Date();
+                    windowToFetch = new Date(
+                        now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
+                        now.getUTCHours(), 0, 0, 0 
+                    ).toISOString(); // Her zaman UTC saat başı
+                }
+                
+                // console.log(`Fetching meta for ${selectedDevice.source_id} at window: ${windowToFetch}`);
                 try {
-                    const meta = await fetchReplayMeta(selectedDevice.source_id, currentWindowStart);
+                    const meta = await fetchReplayMeta(selectedDevice.source_id, windowToFetch);
                     setReplayMeta(meta);
+                    // Eğer meta başarıyla yüklendiyse ve selectedReplayWindow null ise (yani otomatik son saat yüklendiyse)
+                    // selectedReplayWindow'u da güncelle, böylece dropdown senkronize olur.
+                    if (meta?.window_start && !selectedReplayWindow) {
+                        // setSelectedReplayWindow(meta.window_start); // Bu döngüye sokabilir, dikkat!
+                                                                // Daha iyisi, initial load'da uygunsa set etmek.
+                    }
                 } catch (error) {
-                    console.error("Failed to fetch replay meta for current window:", error);
+                    console.error("Failed to fetch replay meta:", error);
                     setReplayMeta(null);
                 } finally {
                     setIsLoadingMeta(false);
                 }
+            } else {
+                setReplayMeta(null); // Cihaz seçili değilse meta'yı temizle
             }
         };
 
-        fetchMetaForCurrentWindow(); // İlk yüklemede çalıştır
+        fetchMeta();
+        
+        // Periyodik güncelleme, eğer hep "son 1 saat" gösteriliyorsa mantıklı olabilir.
+        // Kullanıcı spesifik bir saat seçtiyse, o saatin metası değişmeyeceği için interval gereksiz.
+        // Şimdilik periyodik güncellemeyi kaldırıyorum, kullanıcı seçimine odaklanalım.
+        // const intervalId = setInterval(fetchMeta, 60000);
+        // return () => clearInterval(intervalId);
 
-        // Meta verisini periyodik olarak güncellemek için interval (örneğin her dakika)
-        const intervalId = setInterval(fetchMetaForCurrentWindow, 60000); // 60 saniyede bir
-
-        return () => clearInterval(intervalId); // Component unmount olduğunda interval'ı temizle
-    }, [selectedDevice]); // Sadece selectedDevice değiştiğinde interval'ı yeniden kur
+    }, [selectedDevice, selectedReplayWindow]);
 
     if (!selectedDevice && !devices.length) {
         return <div className="flex justify-center items-center h-screen"><Loading /></div>;
@@ -77,27 +98,42 @@ export default function Page({ params }: { params: { id: string } }) {
         return <div className="text-center mt-10">Cihaz bulunamadı veya yüklenemedi.</div>;
     }
 
+
+
     return (
         <>
             {/* Saat seçim dropdown'ı kaldırıldı */}
             {/* Yükleme göstergesi MonitoringPanel içinde veya burada yönetilebilir */}
             {isLoadingMeta && !replayMeta && ( // Sadece ilk meta yüklenirken genel bir loading göster
-                 <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50">
+                <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50">
                     <Loading />
-                 </div>
+                </div>
             )}
-            <MonitoringPanel
-                selectedDevice={selectedDevice.id}
-                onDeviceSelect={(deviceId: string) => {
-                    const dev = devices.find((d) => d.id === deviceId);
-                    if (dev && dev.stream_url) {
-                        router.push(`/m/${dev.stream_url}`);
-                    }
-                }}
-                sourceId={selectedDevice.source_id}
-                devices={devices}
-                replayMeta={replayMeta} // Bu replayMeta her zaman son 1 saatlik pencereye ait olacak
-            />
+            <div className="flex pb-5 h-full">
+                <MonitoringSideBar
+                    selectedDevice={selectedDevice.id}
+                    onDeviceSelect={(deviceId: string) => {
+                        const dev = devices.find((d) => d.id === deviceId);
+                        if (dev && dev.stream_url) {
+                            router.push(`/m/${dev.stream_url}`);
+                        }
+                    }}
+                    onWindowSelect={handleWindowSelectionFromSidebar}
+                    selectedReplayWindow={selectedReplayWindow}
+                />
+                <MonitoringPanel
+                    selectedDevice={selectedDevice.id}
+                    onDeviceSelect={(deviceId: string) => {
+                        const dev = devices.find((d) => d.id === deviceId);
+                        if (dev && dev.stream_url) {
+                            router.push(`/m/${dev.stream_url}`);
+                        }
+                    }}
+                    sourceId={selectedDevice.source_id}
+                    devices={devices}
+                    replayMeta={replayMeta} // Bu replayMeta her zaman son 1 saatlik pencereye ait olacak
+                />
+            </div>
         </>
     );
 }

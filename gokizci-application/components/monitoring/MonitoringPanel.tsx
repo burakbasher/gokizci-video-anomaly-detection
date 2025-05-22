@@ -175,16 +175,6 @@ export function MonitoringPanel({ selectedDevice, onDeviceSelect, devices, sourc
 
 
     return (
-        <div className="flex pb-5 h-full">
-            <div className="flex w-72">
-                <MonitoringSideBar
-                    selectedDevice={selectedDevice}
-                    onDeviceSelect={onDeviceSelect}
-                    anomalyRateEnabled={false}
-                    onToggleAnomalyRate={() => { }}
-                />
-            </div>
-
             <div className="flex flex-col flex-1 pt-7 pb-7 pr-7">
                 <div className="flex flex-row gap-3 h-full">
                     <div className="flex flex-col flex-1 gap-3">
@@ -317,6 +307,5 @@ export function MonitoringPanel({ selectedDevice, onDeviceSelect, devices, sourc
                     </div>
                 </div>
             </div>
-        </div>
     );
 }

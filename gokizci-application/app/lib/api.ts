@@ -436,3 +436,30 @@ export async function fetchReplayMeta(sourceId: string, windowStart?: string) {
   const data = await res.json();
   return data;
 }
+
+
+export async function fetchAvailableReplayWindows(sourceId: string): Promise<string[]> {
+  try {
+    const headers = await getHeaders(false); // No body, so contentType false
+    const res = await fetch(
+      `http://localhost:5000/api/replay/${sourceId}/meta/available_windows`,
+      {
+        method: "GET",
+        headers,
+        credentials: "include",
+        cache: "no-store", // Her zaman en güncel listeyi al
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Uygun replay pencereleri alınamadı");
+    }
+
+    const data = await res.json();
+    return data.available_windows || [];
+  } catch (error) {
+    console.error('Fetch available replay windows error:', error);
+    throw error; // Hata yönetimi için fırlat
+  }
+}
