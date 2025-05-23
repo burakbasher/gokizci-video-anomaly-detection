@@ -437,6 +437,48 @@ export async function fetchReplayMeta(sourceId: string, windowStart?: string) {
   return data;
 }
 
+export async function deleteUser(userId: string): Promise<boolean> {
+  try {
+    // 1. Deneme: CSRF token ile silme isteği
+    let headers = await getHeaders(false); // Silme işlemi için body yok, contentType: false
+    let res = await fetch(`http://localhost:5000/api/users/${userId}`, {
+      method: 'DELETE',
+      headers,
+      credentials: 'include',
+    });
+
+    // 401 (Unauthorized) hatası alırsak, CSRF token'ı yenileyip tekrar deneyelim
+    if (res.status === 401) {
+      console.warn('CSRF token might be expired. Refreshing and retrying delete user...');
+      await getCsrfToken(true); // CSRF token'ı sunucudan zorla yenile
+      headers = await getHeaders(false); // Yeni token ile header'ları tekrar oluştur
+      res = await fetch(`http://localhost:5000/api/users/${userId}`, {
+        method: 'DELETE',
+        headers,
+        credentials: 'include',
+      });
+    }
+
+    if (!res.ok) {
+      // Başarısız olursa, hatayı JSON olarak parse etmeye çalışalım
+      const errorData = await res.json().catch(() => ({ error: 'Kullanıcı silinirken bir hata oluştu. Sunucu yanıtı okunamadı.' }));
+      throw new Error(errorData.error || `Kullanıcı silinemedi. Durum: ${res.status}`);
+    }
+
+    // Başarılı yanıt (genellikle 200 OK veya 204 No Content)
+    // Backend'den bir mesaj geliyorsa onu da loglayabiliriz.
+    // const responseData = await res.json().catch(() => null);
+    // if (responseData && responseData.message) {
+    //   console.log('Delete user response:', responseData.message);
+    // }
+    return true; // Başarılı silme işlemi
+  } catch (error: any) {
+    console.error('Error deleting user in API lib:', error);
+    // Hata mesajını doğrudan fırlat, böylece çağıran component (UserCard) yakalayabilir.
+    throw new Error(error.message || 'Kullanıcı silinirken bilinmeyen bir hata oluştu.');
+  }
+}
+
 export async function fetchAvailableReplayWindows(sourceId: string): Promise<string[]> {
   try {
     const headers = await getHeaders(false); // No body, so contentType false

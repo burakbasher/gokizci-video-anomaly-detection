@@ -6,15 +6,20 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Device } from "@/app/lib/definitions";
 import { VideoStream } from "../videoplayers/VideoStream";
-import { Circle, Clipboard, Lock, Eye, EyeOff } from "lucide-react";
+import { Circle, Clipboard, Lock, Eye, EyeOff, Trash2 } from "lucide-react";
 import { useAuth } from "@/components/contexts/AuthContext";
+import { toast } from "react-toastify";
+import { deleteDevice } from "@/app/lib/api";
+import { PopUpConfirmDelete } from "../popups/PopUpConfirmDelete";
 
 interface Props {
   device: Device;
   onStatusChange?: (status: "online" | "offline" | "error") => void;
+  refreshDevices: () => void; // Cihaz listesini yenilemek için prop eklendi
+
 }
 
-export const DeviceCard = ({ device, onStatusChange }: Props) => {
+export const DeviceCard = ({ device, onStatusChange, refreshDevices }: Props) => {
   const router = useRouter();
   const { user } = useAuth();
 
@@ -28,6 +33,14 @@ export const DeviceCard = ({ device, onStatusChange }: Props) => {
   const [copied, setCopied] = useState(false);
   const [copiedSourceId, setCopiedSourceId] = useState(false);
   const [deviceStatus, setDeviceStatus] = useState<"online" | "offline" | "error">(device.status);
+  const [isDeletePopupVisible, setDeletePopupVisible] = useState(false); // Silme pop-up'ı için state
+  const [isDeleting, setIsDeleting] = useState(false); // Silme işlemi sırasında loading state
+
+  useEffect(() => {
+    // Cihaz durumu prop'tan değişirse güncelle
+    setDeviceStatus(device.status);
+  }, [device.status]);
+
 
   useEffect(() => {
     return () => {
@@ -62,7 +75,35 @@ export const DeviceCard = ({ device, onStatusChange }: Props) => {
     setTimeout(() => setCopiedSourceId(false), 1000);
   };
 
+  const handleDeletePopupToggle = () => {
+    setDeletePopupVisible(!isDeletePopupVisible);
+  };
+
+  const handleDeleteDeviceConfirmed = async () => {
+    setIsDeleting(true);
+    try {
+      // Backend'de device.id (UUID olan) source_id olarak kullanılıyor.
+      // Eğer API endpoint'i /api/devices/{source_id} şeklinde ise bu doğru.
+      // Eğer API endpoint'i /api/devices/{mongo_object_id} ise device._id gibi bir şey göndermeniz gerekir.
+      // Mevcut `deleteDevice` API fonksiyonunuzun `deviceId` olarak ne beklediğini kontrol edin.
+      // `api/app/devices/routes.py` dosyanızdaki `delete_device` fonksiyonu `source_id` bekliyor.
+      await deleteDevice(device.source_id);
+      toast.success(`"${device.name}" adlı cihaz başarıyla silindi.`);
+      refreshDevices(); // Cihaz listesini yenile
+      setDeletePopupVisible(false); // Pop-up'ı kapat
+    } catch (error) {
+      console.error("Error deleting device:", error);
+      const errorMessage = error instanceof Error ? error.message : "Cihaz silinirken bir hata oluştu.";
+      toast.error(errorMessage);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+
   const isAdmin = user?.role === "admin";
+
+
 
   return (
     <div>
@@ -79,7 +120,17 @@ export const DeviceCard = ({ device, onStatusChange }: Props) => {
                 Bağlan
               </button>
             </div>
-
+            {isAdmin && ( // Silme butonu sadece admin için
+              <div className="relative group">
+                <Trash2
+                  className="w-5 h-5 text-red-500 hover:text-red-700 cursor-pointer"
+                  onClick={handleDeletePopupToggle}
+                />
+                <span className="absolute -top-8 right-1/2 translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                  Sil
+                </span>
+              </div>
+            )}
 
 
             <span
@@ -192,6 +243,15 @@ export const DeviceCard = ({ device, onStatusChange }: Props) => {
                 </div>
               )}
             </div>
+          )}
+          {isDeletePopupVisible && isAdmin && (
+            <PopUpConfirmDelete
+              itemType="cihazı"
+              itemName={device.name}
+              onClose={handleDeletePopupToggle}
+              onConfirm={handleDeleteDeviceConfirmed}
+              isLoading={isDeleting}
+            />
           )}
         </div>
       </div>

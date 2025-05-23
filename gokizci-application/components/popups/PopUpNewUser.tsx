@@ -47,6 +47,7 @@ export function PopUpNewUser({ onClose }: PopUpNewUserProps) {
                 password: formValues.password,
                 role: formValues.role.toLowerCase()
             });
+            
             onClose();
         } catch (error) {
             tempErrors.password = 'Hata, lütfen tekrar deneyin.';

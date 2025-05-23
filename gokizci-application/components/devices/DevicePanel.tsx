@@ -39,7 +39,7 @@ export const DevicePanel = () => {
 
   useEffect(() => {
     getDevices(currentPage);
-  }, [currentPage]);
+  }, [currentPage, user]);
 
   if (user === undefined) {
     return null;
@@ -120,7 +120,7 @@ export const DevicePanel = () => {
         {!isLoading && (
           <div className='grid gap-8 grid-cols-2 pt-4 justify-items-center pb-1'>
             {devices.map((device) => (
-              <DeviceCard key={`${device.id}-${currentPage}`} device={device} />
+              <DeviceCard key={`${device.id}-${currentPage}`} device={device} refreshDevices={getDevices} />
             ))}
           </div>
         )}
