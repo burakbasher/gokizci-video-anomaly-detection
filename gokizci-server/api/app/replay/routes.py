@@ -6,8 +6,10 @@ from datetime import datetime, timedelta
 from models.video_segment import VideoSegment
 from models.replay_meta import ReplayMeta
 import urllib.parse
+import logging
 
 replay_bp = Blueprint('replay', __name__)
+logger = logging.getLogger(__name__)
 
 @replay_bp.route('/<string:source_id>/segments', methods=['GET'])
 @jwt_required()
@@ -121,23 +123,12 @@ def get_replay_meta(source_id):
     })
 
 
-
 @replay_bp.route('/<string:source_id>/meta/available_windows', methods=['GET'])
 @jwt_required()
 def get_available_replay_windows(source_id):
     try:
         # Sadece window_start alanını al ve benzersiz olanları listele, en yeniden eskiye doğru sırala
-        # Son 24 saate ait pencereleri getirmek gibi bir filtreleme de eklenebilir.
-        # Örneğin, son 1 gün içindeki mevcut meta pencereleri:
-        # one_day_ago = datetime.utcnow() - timedelta(days=1)
-        # distinct_windows = ReplayMeta.objects(
-        #     source_id=source_id,
-        #     window_start__gte=one_day_ago
-        # ).distinct('window_start')
-
-        # Veya tüm mevcut pencereler:
         distinct_windows = ReplayMeta.objects(source_id=source_id).distinct('window_start')
-        
         # Tarihleri ISO formatında string listesine çevir
         # ve en yeniden eskiye doğru sırala (distinct sıralamayı garanti etmeyebilir)
         sorted_windows = sorted([dt.isoformat() for dt in distinct_windows], reverse=True)

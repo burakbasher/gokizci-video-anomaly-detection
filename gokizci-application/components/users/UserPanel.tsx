@@ -33,6 +33,7 @@ export function UserPanel() {
     }, [currentPage]);
 
     const handlePopupToggle = () => {
+        getUsers(currentPage);
         setPopupVisible(!isPopupVisible);
     };
 

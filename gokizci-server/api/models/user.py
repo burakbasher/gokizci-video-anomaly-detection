@@ -28,6 +28,7 @@ class User(Document):
 
     def clean(self):
         if self.role not in ["admin", "user"]:
+            print(f"Role: {self.role}")
             raise ValidationError("Role must be either 'admin' or 'user'")
         if not (0 <= self.profile_completion <= 100):
             raise ValidationError("profile_completion must be between 0 and 100")

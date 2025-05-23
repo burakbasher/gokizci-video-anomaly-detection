@@ -93,7 +93,7 @@ export const initialFormValues = {
     userName: '',
     email: '',
     password: '',
-    role: 'User',
+    role: 'user',
 };
 
 export const initialPasswordChangeForm = {

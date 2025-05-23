@@ -49,13 +49,8 @@ const Footer = () => {
                                 </h2>
                                 <ul className="text-primary-light font-medium">
                                     <li className="mb-4">
-                                        <a href="/home" className="hover:text-primary-dark">
+                                        <a href="/user" className="hover:text-primary-dark">
                                             Anasayfa
-                                        </a>
-                                    </li>
-                                    <li className="mb-4">
-                                        <a href="/detection" className="hover:text-primary-dark">
-                                            Gözlem Sayfası
                                         </a>
                                     </li>
                                     <li className="mb-4">

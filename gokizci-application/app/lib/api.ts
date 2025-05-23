@@ -437,7 +437,6 @@ export async function fetchReplayMeta(sourceId: string, windowStart?: string) {
   return data;
 }
 
-
 export async function fetchAvailableReplayWindows(sourceId: string): Promise<string[]> {
   try {
     const headers = await getHeaders(false); // No body, so contentType false

@@ -45,7 +45,7 @@ export function PopUpNewUser({ onClose }: PopUpNewUserProps) {
                 username: formValues.userName,
                 email: formValues.email,
                 password: formValues.password,
-                role: formValues.role
+                role: formValues.role.toLowerCase()
             });
             onClose();
         } catch (error) {

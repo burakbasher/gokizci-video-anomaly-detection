@@ -161,7 +161,7 @@ export function MonitoringPanel({ selectedDevice, onDeviceSelect, devices, sourc
 
     // Meta penceresi değiştiğinde (farklı saat dilimine geçildiğinde)
     useEffect(() => {
-        if (mode === "replay" && replayMeta?.window_start && replayMeta.window_start !== prevReplayMetaWindowStartRef.current) {
+        if (mode === "replay" && replayMeta?.window_start) {
             prevReplayMetaWindowStartRef.current = replayMeta.window_start;
             const firstFilledSecond = replayMeta.second_filled_bits.findIndex(bit => bit === 1);
             const initialSeekTime = firstFilledSecond !== -1 ? firstFilledSecond : 0;
@@ -170,6 +170,13 @@ export function MonitoringPanel({ selectedDevice, onDeviceSelect, devices, sourc
             // Örneğin, yeni pencereye geçince duraklat: setIsReplayPlaying(false);
             // Veya yeni pencerede de otomatik oynat (eğer veri varsa):
             // setIsReplayPlaying(firstFilledSecond !== -1);
+            setIsReplayPlaying(false);
+        } else if (mode === "replay" && !replayMeta) {
+            // Replay modundayız ama meta null oldu (örn: API hatası veya seçim yok)
+            setCurrentTime(0);
+            setReplayPlayerStartTime(undefined);
+            setIsReplayPlaying(false);
+            prevReplayMetaWindowStartRef.current = null;
         }
     }, [replayMeta, mode, updateReplayPlayerState]);
 
